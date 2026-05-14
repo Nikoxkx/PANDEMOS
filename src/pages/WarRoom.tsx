@@ -49,9 +49,10 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
       <div
         className="h-[44px] flex items-center justify-center gap-8 text-[13px] px-4"
         style={{
-          backgroundColor: darkMode ? 'rgba(28,28,30,0.95)' : 'rgba(245,245,247,0.95)',
-          backdropFilter: 'blur(20px)',
-          borderBottom: `1px solid ${borderColor}`,
+          backgroundColor: darkMode ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          borderBottom: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
         }}
       >
         <span style={{ color: textSecondary }}>
@@ -81,11 +82,11 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
         <div
           className="absolute top-4 left-4 rounded-2xl p-4 w-[200px] hidden md:block"
           style={{
-            backgroundColor: darkMode ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-            border: `1px solid ${borderColor}`,
+            backgroundColor: darkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)',
           }}
         >
           <p className="text-[11px] uppercase tracking-[0.06em] font-semibold mb-3" style={{ color: textTertiary }}>
@@ -98,7 +99,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
             onChange={(e) => setFilterDisease(e.target.value)}
             className="w-full rounded-lg px-3 py-2 text-[13px] mb-3 border-0 outline-none cursor-pointer"
             style={{
-              backgroundColor: darkMode ? '#2C2C2E' : '#F5F5F7',
+              backgroundColor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
               color: textPrimary,
             }}
           >
@@ -112,7 +113,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
             onChange={(e) => setFilterSeverity(e.target.value)}
             className="w-full rounded-lg px-3 py-2 text-[13px] border-0 outline-none cursor-pointer"
             style={{
-              backgroundColor: darkMode ? '#2C2C2E' : '#F5F5F7',
+              backgroundColor: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
               color: textPrimary,
             }}
           >
@@ -129,10 +130,11 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
         <div
           className="absolute top-4 right-4 rounded-2xl p-4 hidden md:block"
           style={{
-            backgroundColor: darkMode ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-            border: `1px solid ${borderColor}`,
+            backgroundColor: darkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)',
           }}
         >
           <p className="text-[11px] uppercase tracking-[0.06em] font-semibold mb-3" style={{ color: textTertiary }}>
@@ -152,10 +154,11 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
         <div
           className="absolute bottom-4 left-4 right-4 md:left-8 md:right-8 h-[52px] rounded-2xl flex items-center gap-4 px-4 md:px-6"
           style={{
-            backgroundColor: darkMode ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-            border: `1px solid ${borderColor}`,
+            backgroundColor: darkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)',
           }}
         >
           <button 
@@ -189,13 +192,13 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
           </div>
           
           <div className="hidden md:flex items-center gap-1">
-            {['1×', '2×', '5×'].map(s => (
+            {['1x', '2x', '5x'].map(s => (
               <button
                 key={s}
                 className="text-[11px] px-2 py-1 rounded-md border-0 cursor-pointer bg-transparent transition-colors"
                 style={{ 
-                  color: s === '1×' ? textPrimary : textTertiary,
-                  backgroundColor: s === '1×' ? (darkMode ? '#2C2C2E' : '#F5F5F7') : 'transparent',
+                  color: s === '1x' ? textPrimary : textTertiary,
+                  backgroundColor: s === '1x' ? (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent',
                   fontFamily: 'inherit' 
                 }}
               >
@@ -223,9 +226,12 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
             <div
               className="absolute bottom-0 left-0 right-0 z-[20] rounded-t-3xl overflow-hidden"
               style={{
-                backgroundColor: surface,
-                boxShadow: '0 -8px 40px rgba(0,0,0,0.2)',
+                backgroundColor: darkMode ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)',
+                backdropFilter: 'blur(40px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                boxShadow: '0 -8px 40px rgba(0,0,0,0.3)',
                 maxHeight: '75vh',
+                border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)',
               }}
             >
               {/* Drag handle */}
@@ -249,7 +255,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-[800px] mx-auto">
-                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? '#0A0A0A' : '#F5F5F7' }}>
+                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', border: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)' }}>
                     <p className="text-[22px] font-semibold" style={{ fontFamily: 'monospace', color: textPrimary }}>
                       {selectedPoint.cases.toLocaleString()}
                     </p>
@@ -257,7 +263,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
                       Confirmed Cases
                     </p>
                   </div>
-                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? '#0A0A0A' : '#F5F5F7' }}>
+                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', border: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)' }}>
                     <p className="text-[22px] font-semibold" style={{ fontFamily: 'monospace', color: '#FF3B30' }}>
                       {selectedPoint.deaths.toLocaleString()}
                     </p>
@@ -265,7 +271,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
                       Deaths
                     </p>
                   </div>
-                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? '#0A0A0A' : '#F5F5F7' }}>
+                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', border: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)' }}>
                     <p className="text-[22px] font-semibold" style={{ fontFamily: 'monospace', color: textPrimary }}>
                       {selectedPoint.cases > 0 ? ((selectedPoint.deaths / selectedPoint.cases) * 100).toFixed(1) : '0'}%
                     </p>
@@ -273,7 +279,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
                       Case Fatality
                     </p>
                   </div>
-                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? '#0A0A0A' : '#F5F5F7' }}>
+                  <div className="text-center p-4 rounded-xl" style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', border: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)' }}>
                     <p className="text-[15px] font-semibold" style={{ fontFamily: 'monospace', color: textPrimary }}>
                       {selectedPoint.date}
                     </p>
@@ -295,8 +301,8 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
 
                 {/* Source Information */}
                 <div className="max-w-[600px] mx-auto p-5 rounded-xl text-center mb-6" style={{ 
-                  backgroundColor: darkMode ? '#0A0A0A' : '#F5F5F7',
-                  border: `1px solid ${borderColor}`,
+                  backgroundColor: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
                 }}>
                   <h4 className="text-[13px] uppercase tracking-wide font-semibold mb-3" style={{ color: textTertiary }}>
                     Primary Source
