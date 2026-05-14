@@ -116,31 +116,46 @@ function MapController({ darkMode, onZoomChange }: { darkMode: boolean; onZoomCh
   return null;
 }
 
-// Create custom pin icon
+// Create glass-style pin icon
 const createPinIcon = (severity: string) => {
   const color = getSeverityColor(severity);
   const svgIcon = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
       <defs>
-        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
+        <filter id="glow-${severity}" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feFlood flood-color="${color}" flood-opacity="0.6"/>
+          <feComposite in2="blur" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
         </filter>
+        <linearGradient id="glass-${severity}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:rgba(255,255,255,0.4)"/>
+          <stop offset="50%" style="stop-color:rgba(255,255,255,0.1)"/>
+          <stop offset="100%" style="stop-color:rgba(255,255,255,0.2)"/>
+        </linearGradient>
       </defs>
-      <path d="M12 0C5.4 0 0 5.4 0 12c0 7.2 12 20 12 20s12-12.8 12-20C24 5.4 18.6 0 12 0z" 
+      <path d="M14 0C6.3 0 0 6.3 0 14c0 8.4 14 22 14 22s14-13.6 14-22C28 6.3 21.7 0 14 0z" 
             fill="${color}" 
-            stroke="rgba(255,255,255,0.9)" 
-            stroke-width="1.5"
-            filter="url(#shadow)"/>
-      <circle cx="12" cy="11" r="4" fill="rgba(255,255,255,0.9)"/>
+            fill-opacity="0.7"
+            stroke="rgba(255,255,255,0.6)" 
+            stroke-width="1"
+            filter="url(#glow-${severity})"/>
+      <path d="M14 2C7.4 2 2 7.4 2 14c0 1.5 0.3 3 0.8 4.3C5 12 9 8 14 8s9 4 11.2 10.3c0.5-1.3 0.8-2.8 0.8-4.3C26 7.4 20.6 2 14 2z" 
+            fill="url(#glass-${severity})" 
+            opacity="0.5"/>
+      <circle cx="14" cy="13" r="5" fill="rgba(255,255,255,0.85)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
     </svg>
   `;
   
   return L.divIcon({
     html: svgIcon,
     className: 'custom-pin-icon',
-    iconSize: [24, 32],
-    iconAnchor: [12, 32],
-    popupAnchor: [0, -32],
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -36],
   });
 };
 
@@ -150,15 +165,22 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
   const [mapType, setMapType] = useState<'dark' | 'satellite'>('dark');
   const [currentZoom, setCurrentZoom] = useState(2);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [lastInteraction, setLastInteraction] = useState(Date.now());
   
-  // Show/hide controls based on zoom level
+  // Hide controls after 5 seconds of inactivity
   useEffect(() => {
-    if (currentZoom > 5) {
-      setControlsVisible(false);
-    } else {
-      setControlsVisible(true);
-    }
-  }, [currentZoom]);
+    const timer = setInterval(() => {
+      if (Date.now() - lastInteraction > 5000) {
+        setControlsVisible(false);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastInteraction]);
+
+  const handleInteraction = () => {
+    setLastInteraction(Date.now());
+    setControlsVisible(true);
+  };
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -181,7 +203,12 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
 
 
   return (
-    <div className="relative w-full h-full">
+    <div 
+      className="relative w-full h-full"
+      onMouseMove={handleInteraction}
+      onTouchStart={handleInteraction}
+      onClick={handleInteraction}
+    >
       <MapContainer
         center={[20, 0]}
         zoom={2}
