@@ -323,72 +323,7 @@ export default function Landing({ onNavigate }: LandingProps) {
         </div>
       </Section>
 
-      {/* Anatomy Preview */}
-      <Section alt>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center max-w-[1100px] mx-auto">
-          {/* 3D Preview — represented as stylized illustration */}
-          <div className="flex items-center justify-center">
-            <div
-              className="w-[280px] h-[360px] md:w-[340px] md:h-[440px] rounded-3xl flex items-center justify-center relative"
-              style={{
-                background: darkMode
-                  ? 'linear-gradient(135deg, #1C1C1E, #0A0A0A)'
-                  : 'linear-gradient(135deg, #E8E8ED, #F5F5F7)',
-              }}
-            >
-              <svg viewBox="0 0 200 320" width="160" height="280" fill="none" stroke={textSecondary} strokeWidth="0.8" opacity="0.6">
-                {/* Simplified human silhouette */}
-                <ellipse cx="100" cy="45" rx="25" ry="30" />
-                <path d="M100 75 L100 190" />
-                <path d="M100 100 L55 155" />
-                <path d="M100 100 L145 155" />
-                <path d="M100 190 L65 280" />
-                <path d="M100 190 L135 280" />
-                {/* Organ highlights */}
-                <circle cx="100" cy="130" r="18" stroke={getSeverityColor('critical')} strokeWidth="1.5" opacity="0.5">
-                  <animate attributeName="opacity" values="0.3;0.7;0.3" dur="2s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="92" cy="150" r="10" stroke={getSeverityColor('elevated')} strokeWidth="1" opacity="0.4">
-                  <animate attributeName="opacity" values="0.2;0.5;0.2" dur="2.5s" repeatCount="indefinite" />
-                </circle>
-                <circle cx="100" cy="60" r="12" stroke={getSeverityColor('watch')} strokeWidth="1" opacity="0.3">
-                  <animate attributeName="opacity" values="0.2;0.4;0.2" dur="3s" repeatCount="indefinite" />
-                </circle>
-              </svg>
-              <div
-                className="absolute bottom-6 left-0 right-0 text-center text-[11px] uppercase tracking-[0.08em]"
-                style={{ color: textTertiary }}
-              >
-                Interactive 3D Model
-              </div>
-            </div>
-          </div>
 
-          {/* Text */}
-          <div className="text-center md:text-center">
-            <p className="text-[12px] uppercase tracking-[0.1em] font-medium mb-4" style={{ color: textTertiary }}>
-              INTERACTIVE ANATOMY
-            </p>
-            <h2 className="text-[32px] md:text-[40px] font-semibold leading-[1.2] tracking-tight" style={{ color: textPrimary, letterSpacing: '-0.02em' }}>
-              See how diseases<br />attack the body.
-            </h2>
-            <p className="text-[17px] leading-[1.6] mt-5 max-w-[440px] mx-auto" style={{ color: textSecondary }}>
-              Explore interactive models of the human body. Select any organ to see how specific diseases affect it — with symptom mapping and treatment information.
-            </p>
-            <button
-              onClick={() => onNavigate('/anatomy')}
-              className="mt-8 px-7 py-3.5 rounded-full text-[17px] font-normal transition-colors duration-300 cursor-pointer border-0"
-              style={{
-                backgroundColor: darkMode ? '#F5F5F7' : '#1D1D1F',
-                color: darkMode ? '#1D1D1F' : '#FFFFFF',
-                fontFamily: 'inherit',
-              }}
-            >
-              Explore Anatomy →
-            </button>
-          </div>
-        </div>
-      </Section>
     </div>
   );
 }
