@@ -78,7 +78,7 @@ export default function Landing({ onNavigate }: LandingProps) {
       {/* Hero */}
       <section
         className="min-h-screen flex flex-col items-center justify-center px-6 pt-[52px]"
-        style={{ backgroundColor: darkMode ? '#000000' : '#F5F5F7' }}
+        style={{ backgroundColor: darkMode ? 'rgba(0,0,0,0.95)' : 'rgba(255,255,255,0.95)' }}
       >
         <div className="text-center max-w-[800px] mx-auto">
           <p
