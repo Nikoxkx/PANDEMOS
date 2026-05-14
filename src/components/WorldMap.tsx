@@ -1,9 +1,8 @@
-import { useState, useRef, memo, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, ZoomControl, useMap } from 'react-leaflet';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
-
-// Real NASA Blue Marble satellite image (downloaded locally)
-const SATELLITE_MAP_URL = '/earth-satellite.jpg';
+import 'leaflet/dist/leaflet.css';
 
 interface MapPoint {
   id: string;
@@ -86,32 +85,29 @@ const outbreakData: MapPoint[] = [
   { id: 'pol1', name: 'Karachi', country: 'Pakistan', lat: 24.86, lng: 67.01, cases: 12, deaths: 0, severity: 'watch', disease: 'Polio', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-11', reportDetails: 'Wild poliovirus type 1 detected. Emergency vaccination response.', sourceUrl: 'https://polioeradication.org/' },
 ];
 
-// Convert lat/lng to x/y percentage for the map
-function latLngToPercent(lat: number, lng: number): { x: number; y: number } {
-  // Mercator projection approximation
-  const x = ((lng + 180) / 360) * 100;
-  const latRad = (lat * Math.PI) / 180;
-  const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-  const y = 50 - (mercN * 100) / (2 * Math.PI);
-  return { x: Math.max(0, Math.min(100, x)), y: Math.max(5, Math.min(95, y)) };
-}
-
 interface WorldMapProps {
   onPointClick: (point: MapPoint) => void;
   selectedDisease?: string;
   selectedSeverity?: string;
-  zoomLevel?: number;
 }
 
-const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all', zoomLevel = 1 }: WorldMapProps) {
+// Component to handle map view changes
+function MapController({ darkMode }: { darkMode: boolean }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Force map to invalidate size after render
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+  }, [map]);
+
+  return null;
+}
+
+const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
   const { darkMode } = useStore();
-  const [hoveredPoint, setHoveredPoint] = useState<MapPoint | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -119,222 +115,201 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
     return true;
   });
 
-  const handleMouseMove = (e: React.MouseEvent, point: MapPoint) => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setTooltipPos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    }
-    setHoveredPoint(point);
-  };
-
-  const handleMapMouseDown = (e: React.MouseEvent) => {
-    if (zoomLevel > 1 && (e.target as HTMLElement).classList.contains('map-container')) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panX, y: e.clientY - panY });
-    }
-  };
-
-  const handleMapMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && zoomLevel > 1) {
-      const maxPanX = (containerRef.current?.clientWidth || 0) * (zoomLevel - 1) / 2;
-      const maxPanY = (containerRef.current?.clientHeight || 0) * (zoomLevel - 1) / 2;
-      
-      let newPanX = e.clientX - dragStart.x;
-      let newPanY = e.clientY - dragStart.y;
-      
-      newPanX = Math.max(-maxPanX, Math.min(maxPanX, newPanX));
-      newPanY = Math.max(-maxPanY, Math.min(maxPanY, newPanY));
-      
-      setPanX(newPanX);
-      setPanY(newPanY);
-    }
-  };
-
-  const handleMapMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    setPanX(0);
-    setPanY(0);
-  }, [zoomLevel]);
-
   const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
   const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
 
+  // Dark CartoDB tiles for dark mode, light for light mode
+  const tileUrl = darkMode
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+  const getMarkerRadius = (cases: number, severity: string) => {
+    const baseSize = Math.max(6, Math.min(18, Math.log10(cases + 1) * 4 + 4));
+    if (severity === 'critical') return baseSize * 1.2;
+    return baseSize;
+  };
+
   return (
-    <div 
-      ref={containerRef} 
-      className="relative w-full h-full overflow-hidden map-container"
-      style={{ 
-        backgroundColor: darkMode ? '#0a1628' : '#1a3a5c',
-        cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-      }}
-      onMouseDown={handleMapMouseDown}
-      onMouseMove={handleMapMouseMove}
-      onMouseUp={handleMapMouseUp}
-      onMouseLeave={handleMapMouseUp}
-    >
-      {/* Zoomed map container */}
-      <div
-        style={{
-          width: '100%',
+    <div className="relative w-full h-full">
+      <MapContainer
+        center={[20, 0]}
+        zoom={2}
+        minZoom={2}
+        maxZoom={12}
+        zoomControl={false}
+        scrollWheelZoom={true}
+        doubleClickZoom={true}
+        dragging={true}
+        style={{ 
+          width: '100%', 
           height: '100%',
-          transform: `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`,
-          transformOrigin: 'center',
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+          background: darkMode ? '#1a1a2e' : '#e8e8e8',
         }}
       >
-        {/* Real NASA satellite map - Blue Marble (public domain) */}
-        <img 
-          src={SATELLITE_MAP_URL}
-          alt="NASA Blue Marble satellite view of Earth"
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{
-            filter: darkMode ? 'brightness(0.7) contrast(1.2) saturate(0.9)' : 'brightness(0.95) contrast(1.1) saturate(1.15)',
-          }}
-        />
-      
-        {/* Gradient overlay for better marker visibility */}
-        <div 
-          className="absolute inset-0"
-          style={{
-            background: darkMode 
-              ? 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
-              : 'linear-gradient(to bottom, rgba(0,20,50,0.2) 0%, rgba(0,10,30,0.1) 50%, rgba(0,20,50,0.2) 100%)',
-          }}
+        <MapController darkMode={darkMode} />
+        
+        {/* Zoom controls positioned top-right */}
+        <ZoomControl position="topright" />
+        
+        {/* CartoDB dark tiles */}
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url={tileUrl}
         />
 
-        {/* Data point markers */}
+        {/* Outbreak markers */}
         {filteredPoints.map((point) => {
           const color = getSeverityColor(point.severity);
-          const size = Math.max(8, Math.min(20, Math.log10(point.cases + 1) * 4 + 4));
+          const radius = getMarkerRadius(point.cases, point.severity);
           const isCritical = point.severity === 'critical';
-          const isHovered = hoveredPoint?.id === point.id;
-          const pos = latLngToPercent(point.lat, point.lng);
 
           return (
-            <div
+            <CircleMarker
               key={point.id}
-              className="absolute cursor-pointer transition-transform duration-200"
-              style={{
-                left: `${pos.x}%`,
-                top: `${pos.y}%`,
-                transform: `translate(-50%, -50%) scale(${isHovered ? 1.3 : 1})`,
-                zIndex: isHovered ? 100 : isCritical ? 50 : 10,
+              center={[point.lat, point.lng]}
+              radius={radius}
+              pathOptions={{
+                color: 'rgba(255,255,255,0.8)',
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.8,
               }}
-              onClick={() => onPointClick(point)}
-              onMouseEnter={(e) => handleMouseMove(e, point)}
-              onMouseMove={(e) => handleMouseMove(e, point)}
-              onMouseLeave={() => setHoveredPoint(null)}
+              eventHandlers={{
+                click: () => {
+                  setSelectedPoint(point);
+                  onPointClick(point);
+                },
+              }}
             >
-              {/* Pulse animation for critical */}
-              {isCritical && (
-                <div
-                  className="absolute rounded-full animate-ping"
-                  style={{
-                    width: size * 2,
-                    height: size * 2,
-                    backgroundColor: color,
-                    opacity: 0.4,
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                />
-              )}
-              
-              {/* Glow effect */}
-              <div
-                className="absolute rounded-full"
-                style={{
-                  width: size * 1.8,
-                  height: size * 1.8,
-                  backgroundColor: color,
-                  opacity: 0.3,
-                  filter: 'blur(4px)',
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
-              />
-              
-              {/* Main marker */}
-              <div
-                className="relative rounded-full border-2 shadow-lg"
-                style={{
-                  width: size,
-                  height: size,
-                  backgroundColor: color,
-                  borderColor: 'rgba(255,255,255,0.8)',
-                  boxShadow: `0 0 ${size}px ${color}`,
-                }}
-              />
-            </div>
+              <Popup>
+                <div style={{ 
+                  minWidth: '220px',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    marginBottom: '8px',
+                  }}>
+                    <div style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: color,
+                      boxShadow: `0 0 8px ${color}`,
+                    }} />
+                    <span style={{ 
+                      fontWeight: 600, 
+                      fontSize: '14px',
+                      color: '#1D1D1F',
+                    }}>
+                      {point.name}, {point.country}
+                    </span>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '16px',
+                    marginBottom: '8px',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6E6E73', textTransform: 'uppercase' }}>Cases</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: '#1D1D1F' }}>{point.cases.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6E6E73', textTransform: 'uppercase' }}>Deaths</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: '#1D1D1F' }}>{point.deaths.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    marginBottom: '6px',
+                  }}>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      backgroundColor: color,
+                      color: '#fff',
+                      textTransform: 'uppercase',
+                    }}>
+                      {point.disease}
+                    </span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      backgroundColor: 'rgba(0,0,0,0.05)',
+                      color: '#6E6E73',
+                      textTransform: 'uppercase',
+                    }}>
+                      {point.severity}
+                    </span>
+                  </div>
+                  
+                  <div style={{ 
+                    fontSize: '11px', 
+                    color: '#6E6E73',
+                  }}>
+                    Source: {point.source} &middot; {point.date}
+                  </div>
+                </div>
+              </Popup>
+            </CircleMarker>
           );
         })}
-      </div>
+      </MapContainer>
 
-      {/* Tooltip */}
-      {hoveredPoint && (
-        <div
-          className="absolute z-[200] pointer-events-none"
-          style={{
-            left: tooltipPos.x,
-            top: tooltipPos.y - 10,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <div
-            className="rounded-xl px-4 py-3 shadow-2xl min-w-[280px] max-w-[360px]"
-            style={{
-              backgroundColor: darkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(20px)',
-              border: darkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)',
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: getSeverityColor(hoveredPoint.severity) }}
-              />
-              <span className="text-[15px] font-semibold" style={{ color: textPrimary }}>
-                {hoveredPoint.name}, {hoveredPoint.country}
-              </span>
-            </div>
-            <div className="text-[13px] mb-2" style={{ color: textSecondary }}>
-              {hoveredPoint.disease} - {hoveredPoint.severity.charAt(0).toUpperCase() + hoveredPoint.severity.slice(1)}
-            </div>
-            <div className="flex gap-4 text-[12px]">
-              <div>
-                <span style={{ color: textSecondary }}>Cases: </span>
-                <span className="font-medium" style={{ color: textPrimary }}>{hoveredPoint.cases.toLocaleString()}</span>
-              </div>
-              <div>
-                <span style={{ color: textSecondary }}>Deaths: </span>
-                <span className="font-medium" style={{ color: '#FF3B30' }}>{hoveredPoint.deaths.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="text-[11px] mt-2 leading-relaxed" style={{ color: textSecondary }}>
-              {hoveredPoint.reportDetails.slice(0, 120)}...
-            </div>
-            <div className="text-[10px] mt-2 flex items-center gap-1" style={{ color: textSecondary }}>
-              <span>Source: {hoveredPoint.source}</span>
-              <span>|</span>
-              <span>{hoveredPoint.date}</span>
-            </div>
-            <div className="text-[10px] mt-1 text-blue-400">
-              Click for full details and source link
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Custom CSS for Leaflet in dark mode */}
+      <style>{`
+        .leaflet-container {
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        }
+        .leaflet-control-zoom {
+          border: none !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+        }
+        .leaflet-control-zoom a {
+          background: ${darkMode ? '#2a2a3e' : '#ffffff'} !important;
+          color: ${darkMode ? '#F5F5F7' : '#1D1D1F'} !important;
+          border: none !important;
+          width: 32px !important;
+          height: 32px !important;
+          line-height: 32px !important;
+          font-size: 18px !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: ${darkMode ? '#3a3a4e' : '#f0f0f0'} !important;
+        }
+        .leaflet-control-zoom-in {
+          border-radius: 6px 6px 0 0 !important;
+        }
+        .leaflet-control-zoom-out {
+          border-radius: 0 0 6px 6px !important;
+        }
+        .leaflet-popup-content-wrapper {
+          border-radius: 12px !important;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+        }
+        .leaflet-popup-tip {
+          box-shadow: none !important;
+        }
+        .leaflet-control-attribution {
+          background: ${darkMode ? 'rgba(26,26,46,0.8)' : 'rgba(255,255,255,0.8)'} !important;
+          color: ${darkMode ? '#A1A1A6' : '#6E6E73'} !important;
+          font-size: 10px !important;
+        }
+        .leaflet-control-attribution a {
+          color: ${darkMode ? '#A1A1A6' : '#6E6E73'} !important;
+        }
+      `}</style>
     </div>
   );
 });
 
 export default WorldMap;
-export type { MapPoint };
