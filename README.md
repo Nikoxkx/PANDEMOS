@@ -48,7 +48,7 @@ A real-time disease surveillance and educational platform for pandemic preparedn
 - **Framework**: React 19 with TypeScript
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS 4
-- **Maps**: react-simple-maps with world-atlas TopoJSON
+- **Maps**: Custom SVG map with NASA satellite imagery background
 - **State Management**: Zustand
 
 ## Design
