@@ -7,7 +7,7 @@ import SeverityBadge from '../components/SeverityBadge';
 import SourceCitation from '../components/SourceCitation';
 import Sparkline from '../components/Sparkline';
 import DataFreshness from '../components/DataFreshness';
-
+import AnatomyViewer from '../components/AnatomyViewer';
 import type { JSX } from 'react';
 
 interface DiseaseDetailProps {
@@ -651,7 +651,23 @@ export default function DiseaseDetail({ slug, onNavigate }: DiseaseDetailProps) 
         </Section>
       )}
 
-
+      {/* Interactive Anatomy */}
+      <section className="w-full py-[80px] md:py-[120px]" style={{ backgroundColor: '#000000' }}>
+        <div className="max-w-[1200px] mx-auto px-6 md:px-10 lg:px-16">
+          <div className="text-center mb-12">
+            <p className="text-[12px] uppercase tracking-[0.1em] font-medium mb-4" style={{ color: '#6E6E73' }}>
+              INTERACTIVE ANATOMY
+            </p>
+            <h2 className="text-[32px] md:text-[40px] font-semibold leading-[1.2] tracking-tight max-w-[700px] mx-auto" style={{ color: '#F5F5F7', letterSpacing: '-0.02em' }}>
+              How {disease.name} attacks the body.
+            </h2>
+            <p className="text-[17px] mt-4 max-w-[580px] mx-auto" style={{ color: '#A1A1A6' }}>
+              Click on any organ to see detailed pathophysiology, cellular damage, and clinical manifestations.
+            </p>
+          </div>
+          <AnatomyViewer diseaseSlug={disease.slug} />
+        </div>
+      </section>
 
       {/* Risk Factors */}
       <Section label="RISK FACTORS" heading="Who is most vulnerable?" body="Certain populations face elevated risk of severe outcomes.">

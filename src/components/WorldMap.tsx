@@ -1,9 +1,6 @@
-import { useState, useRef, memo, useEffect } from 'react';
+import { useState, useRef, memo } from 'react';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
-
-// NASA Blue Marble satellite image (public domain)
-const SATELLITE_MAP_URL = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg';
 
 interface MapPoint {
   id: string;
@@ -130,14 +127,12 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden">
-      {/* Real NASA satellite map - Blue Marble (public domain) */}
-      <img 
-        src={SATELLITE_MAP_URL}
-        alt="NASA Blue Marble satellite view of Earth"
-        className="absolute inset-0 w-full h-full object-cover"
-        crossOrigin="anonymous"
+      {/* High quality satellite map background */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          filter: darkMode ? 'brightness(0.7) contrast(1.2) saturate(0.9)' : 'brightness(0.95) contrast(1.1) saturate(1.15)',
+          backgroundImage: 'url(https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Earthlights_dmsp.jpg/2560px-Earthlights_dmsp.jpg)',
+          filter: darkMode ? 'brightness(0.8) contrast(1.1)' : 'brightness(0.9) contrast(1.05) saturate(1.1)',
         }}
       />
       
