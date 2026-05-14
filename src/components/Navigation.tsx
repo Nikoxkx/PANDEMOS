@@ -22,10 +22,10 @@ export default function Navigation({ currentPath, onNavigate }: NavigationProps)
       <nav
         className="fixed top-0 left-0 right-0 z-[100] h-[52px] flex items-center justify-between px-6 md:px-10"
         style={{
-          backgroundColor: darkMode ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.82)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-          borderBottom: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+          backgroundColor: darkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          borderBottom: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)',
         }}
       >
         {/* Logo */}
@@ -114,8 +114,9 @@ export default function Navigation({ currentPath, onNavigate }: NavigationProps)
         <div
           className="fixed inset-0 z-[99] flex flex-col items-center justify-center gap-12 transition-opacity duration-300"
           style={{
-            backgroundColor: darkMode ? 'rgba(0,0,0,0.97)' : 'rgba(255,255,255,0.97)',
-            backdropFilter: 'blur(20px)',
+            backgroundColor: darkMode ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
           }}
         >
           {navLinks.map((link) => (

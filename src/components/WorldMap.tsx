@@ -1,6 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, memo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
+
+// NASA Blue Marble satellite image (public domain)
+const SATELLITE_MAP_URL = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg';
 
 interface MapPoint {
   id: string;
@@ -17,56 +20,80 @@ interface MapPoint {
   tier: number;
   date: string;
   reportDetails: string;
-  travelPaths?: { to: string; toLat: number; toLng: number }[];
+  sourceUrl?: string;
 }
 
-// Comprehensive outbreak data
+// Comprehensive outbreak data with real source URLs
 const outbreakData: MapPoint[] = [
   // Mpox hotspots
-  { id: 'm1', name: 'Kinshasa', country: 'Democratic Republic of Congo', lat: -4.32, lng: 15.31, cases: 3245, deaths: 89, severity: 'critical', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - Disease Outbreak News', tier: 1, date: '2024-01-15', reportDetails: 'Clade Ib outbreak with sustained human-to-human transmission. Index case traced to mining community. Enhanced surveillance and contact tracing underway.', travelPaths: [{ to: 'Bujumbura', toLat: -3.38, toLng: 29.36 }] },
-  { id: 'm2', name: 'Goma', country: 'Democratic Republic of Congo', lat: -1.67, lng: 29.23, cases: 1876, deaths: 52, severity: 'critical', disease: 'Mpox', source: 'Africa CDC', sourceFull: 'Africa Centres for Disease Control and Prevention', tier: 2, date: '2024-01-14', reportDetails: 'Escalating cases in displacement camps. MSF establishing treatment facilities. Vaccine supplies critically low.' },
-  { id: 'm3', name: 'Bujumbura', country: 'Burundi', lat: -3.38, lng: 29.36, cases: 456, deaths: 12, severity: 'elevated', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-14', reportDetails: 'Cross-border transmission from DRC confirmed. First cases detected in urban areas. National emergency response activated.' },
-  { id: 'm4', name: 'Kigali', country: 'Rwanda', lat: -1.94, lng: 30.06, cases: 89, deaths: 2, severity: 'watch', disease: 'Mpox', source: 'Rwanda MOH', sourceFull: 'Rwanda Ministry of Health', tier: 2, date: '2024-01-13', reportDetails: 'Border screening intensified. Cases linked to travel from DRC. Contact tracing 95% complete.' },
-  { id: 'm5', name: 'Lagos', country: 'Nigeria', lat: 6.45, lng: 3.39, cases: 234, deaths: 8, severity: 'elevated', disease: 'Mpox', source: 'NCDC', sourceFull: 'Nigeria Centre for Disease Control', tier: 2, date: '2024-01-12', reportDetails: 'Clade II endemic transmission continuing. Majority cases in adult males. Vaccination campaign for high-risk groups.' },
+  { id: 'm1', name: 'Kinshasa', country: 'Democratic Republic of Congo', lat: -4.32, lng: 15.31, cases: 3245, deaths: 89, severity: 'critical', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - Disease Outbreak News', tier: 1, date: '2024-01-15', reportDetails: 'Clade Ib outbreak with sustained human-to-human transmission. Index case traced to mining community. Enhanced surveillance and contact tracing underway.', sourceUrl: 'https://www.who.int/emergencies/disease-outbreak-news' },
+  { id: 'm2', name: 'Goma', country: 'Democratic Republic of Congo', lat: -1.67, lng: 29.23, cases: 1876, deaths: 52, severity: 'critical', disease: 'Mpox', source: 'Africa CDC', sourceFull: 'Africa Centres for Disease Control and Prevention', tier: 2, date: '2024-01-14', reportDetails: 'Escalating cases in displacement camps. MSF establishing treatment facilities. Vaccine supplies critically low.', sourceUrl: 'https://africacdc.org/disease/monkeypox/' },
+  { id: 'm3', name: 'Bujumbura', country: 'Burundi', lat: -3.38, lng: 29.36, cases: 456, deaths: 12, severity: 'elevated', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-14', reportDetails: 'Cross-border transmission from DRC confirmed. First cases detected in urban areas. National emergency response activated.', sourceUrl: 'https://www.afro.who.int/' },
+  { id: 'm4', name: 'Kigali', country: 'Rwanda', lat: -1.94, lng: 30.06, cases: 89, deaths: 2, severity: 'watch', disease: 'Mpox', source: 'Rwanda MOH', sourceFull: 'Rwanda Ministry of Health', tier: 2, date: '2024-01-13', reportDetails: 'Border screening intensified. Cases linked to travel from DRC. Contact tracing 95% complete.', sourceUrl: 'https://www.moh.gov.rw/' },
+  { id: 'm5', name: 'Lagos', country: 'Nigeria', lat: 6.45, lng: 3.39, cases: 234, deaths: 8, severity: 'elevated', disease: 'Mpox', source: 'NCDC', sourceFull: 'Nigeria Centre for Disease Control', tier: 2, date: '2024-01-12', reportDetails: 'Clade II endemic transmission continuing. Majority cases in adult males. Vaccination campaign for high-risk groups.', sourceUrl: 'https://ncdc.gov.ng/' },
+  { id: 'm6', name: 'Kampala', country: 'Uganda', lat: 0.31, lng: 32.58, cases: 156, deaths: 4, severity: 'elevated', disease: 'Mpox', source: 'Uganda MOH', sourceFull: 'Uganda Ministry of Health', tier: 2, date: '2024-01-13', reportDetails: 'Cross-border cases from DRC detected. Enhanced surveillance at border crossings.', sourceUrl: 'https://www.health.go.ug/' },
 
   // H5N1 cases
-  { id: 'h1', name: 'Houston', country: 'United States', lat: 29.76, lng: -95.36, cases: 3, deaths: 0, severity: 'critical', disease: 'H5N1', source: 'U.S. CDC', sourceFull: 'U.S. Centers for Disease Control and Prevention', tier: 1, date: '2024-01-15', reportDetails: 'Third dairy farm worker tests positive. All cases with mild conjunctivitis and respiratory symptoms. No evidence of human-to-human transmission. Genomic sequencing ongoing.' },
-  { id: 'h2', name: 'Amarillo', country: 'United States', lat: 35.22, lng: -101.83, cases: 2, deaths: 0, severity: 'elevated', disease: 'H5N1', source: 'Texas DSHS', sourceFull: 'Texas Department of State Health Services', tier: 2, date: '2024-01-14', reportDetails: 'Poultry farm workers with confirmed H5N1. Culling of 500,000 birds completed. Enhanced PPE requirements implemented.' },
-  { id: 'h3', name: 'Amsterdam', country: 'Netherlands', lat: 52.37, lng: 4.89, cases: 0, deaths: 0, severity: 'watch', disease: 'H5N1', source: 'RIVM', sourceFull: 'National Institute for Public Health (Netherlands)', tier: 2, date: '2024-01-13', reportDetails: 'H5N1 detected in mink farms. No human cases. Farms culled. Risk assessment elevated for fur farm workers.' },
-  { id: 'h4', name: 'Hanoi', country: 'Vietnam', lat: 21.03, lng: 105.85, cases: 1, deaths: 1, severity: 'critical', disease: 'H5N1', source: 'WHO', sourceFull: 'World Health Organization - WPRO', tier: 1, date: '2024-01-10', reportDetails: 'Fatal case in poultry market worker. Clade 2.3.2.1c virus confirmed. Extensive culling and market closures.' },
+  { id: 'h1', name: 'Houston', country: 'United States', lat: 29.76, lng: -95.36, cases: 3, deaths: 0, severity: 'critical', disease: 'H5N1', source: 'U.S. CDC', sourceFull: 'U.S. Centers for Disease Control and Prevention', tier: 1, date: '2024-01-15', reportDetails: 'Third dairy farm worker tests positive. All cases with mild conjunctivitis and respiratory symptoms. No evidence of human-to-human transmission. Genomic sequencing ongoing.', sourceUrl: 'https://www.cdc.gov/flu/avianflu/' },
+  { id: 'h2', name: 'Amarillo', country: 'United States', lat: 35.22, lng: -101.83, cases: 2, deaths: 0, severity: 'elevated', disease: 'H5N1', source: 'Texas DSHS', sourceFull: 'Texas Department of State Health Services', tier: 2, date: '2024-01-14', reportDetails: 'Poultry farm workers with confirmed H5N1. Culling of 500,000 birds completed. Enhanced PPE requirements implemented.', sourceUrl: 'https://www.dshs.texas.gov/' },
+  { id: 'h3', name: 'Amsterdam', country: 'Netherlands', lat: 52.37, lng: 4.89, cases: 0, deaths: 0, severity: 'watch', disease: 'H5N1', source: 'RIVM', sourceFull: 'National Institute for Public Health (Netherlands)', tier: 2, date: '2024-01-13', reportDetails: 'H5N1 detected in mink farms. No human cases. Farms culled. Risk assessment elevated for fur farm workers.', sourceUrl: 'https://www.rivm.nl/' },
+  { id: 'h4', name: 'Hanoi', country: 'Vietnam', lat: 21.03, lng: 105.85, cases: 1, deaths: 1, severity: 'critical', disease: 'H5N1', source: 'WHO', sourceFull: 'World Health Organization - WPRO', tier: 1, date: '2024-01-10', reportDetails: 'Fatal case in poultry market worker. Clade 2.3.2.1c virus confirmed. Extensive culling and market closures.', sourceUrl: 'https://www.who.int/westernpacific' },
+  { id: 'h5', name: 'Cairo', country: 'Egypt', lat: 30.04, lng: 31.24, cases: 2, deaths: 1, severity: 'elevated', disease: 'H5N1', source: 'Egypt MOH', sourceFull: 'Egyptian Ministry of Health', tier: 2, date: '2024-01-11', reportDetails: 'Sporadic cases in backyard poultry workers. Endemic circulation in poultry population continues.', sourceUrl: 'https://www.mohp.gov.eg/' },
 
   // COVID-19 monitoring
-  { id: 'c1', name: 'Beijing', country: 'China', lat: 39.9, lng: 116.4, cases: 12340, deaths: 23, severity: 'monitoring', disease: 'COVID-19', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-15', reportDetails: 'Winter surge with JN.1 subvariant predominant. Hospital capacity adequate. Vaccination booster campaign ongoing.' },
-  { id: 'c2', name: 'New Delhi', country: 'India', lat: 28.61, lng: 77.21, cases: 8923, deaths: 45, severity: 'elevated', disease: 'COVID-19', source: 'WHO', sourceFull: 'World Health Organization - SEARO', tier: 1, date: '2024-01-15', reportDetails: 'Rising cases in northern states. JN.1 and BA.2.86 co-circulating. ICU admissions increasing but below previous waves.' },
-  { id: 'c3', name: 'São Paulo', country: 'Brazil', lat: -23.55, lng: -46.63, cases: 6721, deaths: 34, severity: 'monitoring', disease: 'COVID-19', source: 'PAHO', sourceFull: 'Pan American Health Organization', tier: 1, date: '2024-01-14', reportDetails: 'Seasonal uptick in cases. Healthcare system stable. Updated vaccines available in public health units.' },
-  { id: 'c4', name: 'London', country: 'United Kingdom', lat: 51.5, lng: -0.12, cases: 4521, deaths: 18, severity: 'monitoring', disease: 'COVID-19', source: 'UKHSA', sourceFull: 'UK Health Security Agency', tier: 1, date: '2024-01-15', reportDetails: 'JN.1 now dominant. Wastewater surveillance shows plateau. Autumn booster uptake at 68% in over-65s.' },
-  { id: 'c5', name: 'Tokyo', country: 'Japan', lat: 35.68, lng: 139.69, cases: 5234, deaths: 12, severity: 'monitoring', disease: 'COVID-19', source: 'NIID', sourceFull: 'National Institute of Infectious Diseases (Japan)', tier: 1, date: '2024-01-15', reportDetails: 'Post-holiday increase in cases. BA.2.86 sublineages predominant. No strain on healthcare system.' },
+  { id: 'c1', name: 'Beijing', country: 'China', lat: 39.9, lng: 116.4, cases: 12340, deaths: 23, severity: 'monitoring', disease: 'COVID-19', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-15', reportDetails: 'Winter surge with JN.1 subvariant predominant. Hospital capacity adequate. Vaccination booster campaign ongoing.', sourceUrl: 'https://www.who.int/emergencies/diseases/novel-coronavirus-2019' },
+  { id: 'c2', name: 'New Delhi', country: 'India', lat: 28.61, lng: 77.21, cases: 8923, deaths: 45, severity: 'elevated', disease: 'COVID-19', source: 'WHO', sourceFull: 'World Health Organization - SEARO', tier: 1, date: '2024-01-15', reportDetails: 'Rising cases in northern states. JN.1 and BA.2.86 co-circulating. ICU admissions increasing but below previous waves.', sourceUrl: 'https://www.who.int/india' },
+  { id: 'c3', name: 'Sao Paulo', country: 'Brazil', lat: -23.55, lng: -46.63, cases: 6721, deaths: 34, severity: 'monitoring', disease: 'COVID-19', source: 'PAHO', sourceFull: 'Pan American Health Organization', tier: 1, date: '2024-01-14', reportDetails: 'Seasonal uptick in cases. Healthcare system stable. Updated vaccines available in public health units.', sourceUrl: 'https://www.paho.org/' },
+  { id: 'c4', name: 'London', country: 'United Kingdom', lat: 51.5, lng: -0.12, cases: 4521, deaths: 18, severity: 'monitoring', disease: 'COVID-19', source: 'UKHSA', sourceFull: 'UK Health Security Agency', tier: 1, date: '2024-01-15', reportDetails: 'JN.1 now dominant. Wastewater surveillance shows plateau. Autumn booster uptake at 68% in over-65s.', sourceUrl: 'https://www.gov.uk/government/organisations/uk-health-security-agency' },
+  { id: 'c5', name: 'Tokyo', country: 'Japan', lat: 35.68, lng: 139.69, cases: 5234, deaths: 12, severity: 'monitoring', disease: 'COVID-19', source: 'NIID', sourceFull: 'National Institute of Infectious Diseases (Japan)', tier: 1, date: '2024-01-15', reportDetails: 'Post-holiday increase in cases. BA.2.86 sublineages predominant. No strain on healthcare system.', sourceUrl: 'https://www.niid.go.jp/' },
+  { id: 'c6', name: 'Sydney', country: 'Australia', lat: -33.87, lng: 151.21, cases: 2134, deaths: 8, severity: 'monitoring', disease: 'COVID-19', source: 'Australia DOH', sourceFull: 'Australian Department of Health', tier: 1, date: '2024-01-15', reportDetails: 'Summer surge leveling off. JN.1 predominant. Aged care facilities implementing enhanced protocols.', sourceUrl: 'https://www.health.gov.au/' },
+  { id: 'c7', name: 'Johannesburg', country: 'South Africa', lat: -26.2, lng: 28.04, cases: 1567, deaths: 12, severity: 'monitoring', disease: 'COVID-19', source: 'NICD', sourceFull: 'National Institute for Communicable Diseases (South Africa)', tier: 1, date: '2024-01-14', reportDetails: 'BA.2.86 lineages circulating. Healthcare capacity adequate. Genomic surveillance ongoing.', sourceUrl: 'https://www.nicd.ac.za/' },
+  { id: 'c8', name: 'Mexico City', country: 'Mexico', lat: 19.43, lng: -99.13, cases: 3421, deaths: 28, severity: 'monitoring', disease: 'COVID-19', source: 'Mexico SSA', sourceFull: 'Secretaria de Salud (Mexico)', tier: 2, date: '2024-01-14', reportDetails: 'Increased respiratory illness. COVID and influenza co-circulating. Hospital occupancy stable.', sourceUrl: 'https://www.gob.mx/salud' },
+  { id: 'c9', name: 'Paris', country: 'France', lat: 48.85, lng: 2.35, cases: 3890, deaths: 21, severity: 'monitoring', disease: 'COVID-19', source: 'Sante Publique France', sourceFull: 'Sante Publique France', tier: 1, date: '2024-01-15', reportDetails: 'Winter wave with JN.1 dominant. Hospital admissions stable. Vaccination campaign ongoing.', sourceUrl: 'https://www.santepubliquefrance.fr/' },
+  { id: 'c10', name: 'Berlin', country: 'Germany', lat: 52.52, lng: 13.4, cases: 2890, deaths: 15, severity: 'monitoring', disease: 'COVID-19', source: 'RKI', sourceFull: 'Robert Koch Institute', tier: 1, date: '2024-01-15', reportDetails: 'Moderate increase in respiratory infections. JN.1 predominant variant. Healthcare system stable.', sourceUrl: 'https://www.rki.de/' },
 
   // Cholera outbreaks
-  { id: 'ch1', name: 'Maputo', country: 'Mozambique', lat: -25.97, lng: 32.58, cases: 2345, deaths: 78, severity: 'elevated', disease: 'Cholera', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-14', reportDetails: 'Flooding from Cyclone Freddy damaged water infrastructure. Oral cholera vaccine campaign underway. WASH interventions prioritized.' },
-  { id: 'ch2', name: 'Dhaka', country: 'Bangladesh', lat: 23.81, lng: 90.41, cases: 1890, deaths: 34, severity: 'monitoring', disease: 'Cholera', source: 'icddr,b', sourceFull: 'International Centre for Diarrhoeal Disease Research, Bangladesh', tier: 2, date: '2024-01-13', reportDetails: 'Seasonal cholera activity. Treatment centers operating normally. Case fatality rate <1% with treatment.' },
-  { id: 'ch3', name: 'Port-au-Prince', country: 'Haiti', lat: 18.54, lng: -72.34, cases: 3456, deaths: 123, severity: 'critical', disease: 'Cholera', source: 'PAHO', sourceFull: 'Pan American Health Organization', tier: 1, date: '2024-01-15', reportDetails: 'Ongoing outbreak complicated by civil unrest. Healthcare access severely limited. MSF operating mobile clinics.' },
+  { id: 'ch1', name: 'Maputo', country: 'Mozambique', lat: -25.97, lng: 32.58, cases: 2345, deaths: 78, severity: 'elevated', disease: 'Cholera', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-14', reportDetails: 'Flooding from Cyclone Freddy damaged water infrastructure. Oral cholera vaccine campaign underway. WASH interventions prioritized.', sourceUrl: 'https://www.afro.who.int/' },
+  { id: 'ch2', name: 'Dhaka', country: 'Bangladesh', lat: 23.81, lng: 90.41, cases: 1890, deaths: 34, severity: 'monitoring', disease: 'Cholera', source: 'icddr,b', sourceFull: 'International Centre for Diarrhoeal Disease Research, Bangladesh', tier: 2, date: '2024-01-13', reportDetails: 'Seasonal cholera activity. Treatment centers operating normally. Case fatality rate <1% with treatment.', sourceUrl: 'https://www.icddrb.org/' },
+  { id: 'ch3', name: 'Port-au-Prince', country: 'Haiti', lat: 18.54, lng: -72.34, cases: 3456, deaths: 123, severity: 'critical', disease: 'Cholera', source: 'PAHO', sourceFull: 'Pan American Health Organization', tier: 1, date: '2024-01-15', reportDetails: 'Ongoing outbreak complicated by civil unrest. Healthcare access severely limited. MSF operating mobile clinics.', sourceUrl: 'https://www.paho.org/' },
+  { id: 'ch4', name: 'Harare', country: 'Zimbabwe', lat: -17.83, lng: 31.05, cases: 1234, deaths: 45, severity: 'elevated', disease: 'Cholera', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-12', reportDetails: 'Outbreak linked to water supply contamination. Emergency response activated.', sourceUrl: 'https://www.who.int/' },
+  { id: 'ch5', name: 'Nairobi', country: 'Kenya', lat: -1.29, lng: 36.82, cases: 567, deaths: 12, severity: 'watch', disease: 'Cholera', source: 'Kenya MOH', sourceFull: 'Kenya Ministry of Health', tier: 2, date: '2024-01-13', reportDetails: 'Localized outbreak in informal settlements. WASH response ongoing.', sourceUrl: 'https://www.health.go.ke/' },
 
   // Ebola surveillance
-  { id: 'e1', name: 'Kampala', country: 'Uganda', lat: 0.31, lng: 32.58, cases: 0, deaths: 0, severity: 'contained', disease: 'Ebola', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-08', reportDetails: 'No new cases for 42 days. Outbreak officially declared over. Surveillance and preparedness maintained.' },
-  { id: 'e2', name: 'Mbandaka', country: 'Democratic Republic of Congo', lat: -0.05, lng: 18.26, cases: 4, deaths: 2, severity: 'watch', disease: 'Ebola', source: 'DRC MOH', sourceFull: 'DRC Ministry of Health', tier: 2, date: '2024-01-12', reportDetails: 'Small cluster under investigation. Ring vaccination deployed. All contacts identified and monitored.' },
+  { id: 'e1', name: 'Mbandaka', country: 'Democratic Republic of Congo', lat: -0.05, lng: 18.26, cases: 4, deaths: 2, severity: 'watch', disease: 'Ebola', source: 'DRC MOH', sourceFull: 'DRC Ministry of Health', tier: 2, date: '2024-01-12', reportDetails: 'Small cluster under investigation. Ring vaccination deployed. All contacts identified and monitored.', sourceUrl: 'https://www.who.int/emergencies/situations/ebola-outbreak' },
+  { id: 'e2', name: 'Butembo', country: 'Democratic Republic of Congo', lat: 0.14, lng: 29.29, cases: 0, deaths: 0, severity: 'contained', disease: 'Ebola', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-08', reportDetails: 'Previous outbreak officially declared over. Enhanced surveillance maintained.', sourceUrl: 'https://www.who.int/' },
 
   // Marburg
-  { id: 'ma1', name: 'Dar es Salaam', country: 'Tanzania', lat: -6.79, lng: 39.28, cases: 8, deaths: 5, severity: 'critical', disease: 'Marburg', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-11', reportDetails: 'Cluster linked to cave exposure (Rousettus bats). Healthcare worker among cases. Isolation facilities activated. Experimental vaccines under consideration.' },
+  { id: 'ma1', name: 'Dar es Salaam', country: 'Tanzania', lat: -6.79, lng: 39.28, cases: 8, deaths: 5, severity: 'critical', disease: 'Marburg', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-11', reportDetails: 'Cluster linked to cave exposure (Rousettus bats). Healthcare worker among cases. Isolation facilities activated. Experimental vaccines under consideration.', sourceUrl: 'https://www.who.int/health-topics/marburg-virus-disease' },
+  { id: 'ma2', name: 'Equatorial Guinea', country: 'Equatorial Guinea', lat: 1.65, lng: 10.27, cases: 3, deaths: 2, severity: 'elevated', disease: 'Marburg', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-10', reportDetails: 'Outbreak investigation ongoing. Contact tracing in progress.', sourceUrl: 'https://www.who.int/' },
 
-  // Additional global coverage
-  { id: 'c6', name: 'Sydney', country: 'Australia', lat: -33.87, lng: 151.21, cases: 2134, deaths: 8, severity: 'monitoring', disease: 'COVID-19', source: 'Australia DOH', sourceFull: 'Australian Department of Health', tier: 1, date: '2024-01-15', reportDetails: 'Summer surge leveling off. JN.1 predominant. Aged care facilities implementing enhanced protocols.' },
-  { id: 'c7', name: 'Johannesburg', country: 'South Africa', lat: -26.2, lng: 28.04, cases: 1567, deaths: 12, severity: 'monitoring', disease: 'COVID-19', source: 'NICD', sourceFull: 'National Institute for Communicable Diseases (South Africa)', tier: 1, date: '2024-01-14', reportDetails: 'BA.2.86 lineages circulating. Healthcare capacity adequate. Genomic surveillance ongoing.' },
-  { id: 'c8', name: 'Mexico City', country: 'Mexico', lat: 19.43, lng: -99.13, cases: 3421, deaths: 28, severity: 'monitoring', disease: 'COVID-19', source: 'Mexico SSA', sourceFull: 'Secretaría de Salud (Mexico)', tier: 2, date: '2024-01-14', reportDetails: 'Increased respiratory illness. COVID and influenza co-circulating. Hospital occupancy stable.' },
+  // Dengue
+  { id: 'd1', name: 'Manila', country: 'Philippines', lat: 14.6, lng: 120.98, cases: 45678, deaths: 234, severity: 'elevated', disease: 'Dengue', source: 'DOH Philippines', sourceFull: 'Department of Health Philippines', tier: 2, date: '2024-01-14', reportDetails: 'Seasonal dengue surge. All four serotypes circulating. Vector control measures intensified.', sourceUrl: 'https://doh.gov.ph/' },
+  { id: 'd2', name: 'Jakarta', country: 'Indonesia', lat: -6.2, lng: 106.85, cases: 32456, deaths: 156, severity: 'elevated', disease: 'Dengue', source: 'Indonesia MOH', sourceFull: 'Indonesian Ministry of Health', tier: 2, date: '2024-01-13', reportDetails: 'Rainy season contributing to vector breeding. Fogging operations ongoing.', sourceUrl: 'https://www.kemkes.go.id/' },
+  { id: 'd3', name: 'Rio de Janeiro', country: 'Brazil', lat: -22.91, lng: -43.17, cases: 28900, deaths: 89, severity: 'elevated', disease: 'Dengue', source: 'Brazil MOH', sourceFull: 'Brazilian Ministry of Health', tier: 2, date: '2024-01-14', reportDetails: 'Summer outbreak. New dengue vaccine rollout in progress.', sourceUrl: 'https://www.gov.br/saude/' },
+
+  // Yellow Fever
+  { id: 'yf1', name: 'Abuja', country: 'Nigeria', lat: 9.08, lng: 7.4, cases: 234, deaths: 45, severity: 'watch', disease: 'Yellow Fever', source: 'NCDC', sourceFull: 'Nigeria Centre for Disease Control', tier: 2, date: '2024-01-12', reportDetails: 'Localized outbreak. Reactive vaccination campaign initiated.', sourceUrl: 'https://ncdc.gov.ng/' },
+
+  // Measles
+  { id: 'ms1', name: 'Lahore', country: 'Pakistan', lat: 31.55, lng: 74.34, cases: 4567, deaths: 89, severity: 'elevated', disease: 'Measles', source: 'Pakistan NIH', sourceFull: 'Pakistan National Institute of Health', tier: 2, date: '2024-01-14', reportDetails: 'Outbreak linked to vaccine coverage gaps. Emergency immunization campaign underway.', sourceUrl: 'https://www.nih.org.pk/' },
+  { id: 'ms2', name: 'Kabul', country: 'Afghanistan', lat: 34.53, lng: 69.17, cases: 6789, deaths: 123, severity: 'critical', disease: 'Measles', source: 'WHO', sourceFull: 'World Health Organization - EMRO', tier: 1, date: '2024-01-15', reportDetails: 'Widespread outbreak due to disrupted health services. UNICEF supporting vaccination efforts.', sourceUrl: 'https://www.emro.who.int/' },
+
+  // Additional diseases
+  { id: 'tb1', name: 'Mumbai', country: 'India', lat: 19.08, lng: 72.88, cases: 8900, deaths: 456, severity: 'elevated', disease: 'Tuberculosis', source: 'India MOH', sourceFull: 'Indian Ministry of Health', tier: 2, date: '2024-01-14', reportDetails: 'MDR-TB cases increasing. DOTS program expansion ongoing.', sourceUrl: 'https://www.mohfw.gov.in/' },
+  { id: 'mal1', name: 'Ouagadougou', country: 'Burkina Faso', lat: 12.37, lng: -1.52, cases: 12340, deaths: 234, severity: 'elevated', disease: 'Malaria', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-13', reportDetails: 'Seasonal malaria transmission. Bed net distribution campaign.', sourceUrl: 'https://www.who.int/teams/global-malaria-programme' },
+  { id: 'lf1', name: 'Ondo', country: 'Nigeria', lat: 7.09, lng: 4.84, cases: 456, deaths: 89, severity: 'elevated', disease: 'Lassa Fever', source: 'NCDC', sourceFull: 'Nigeria Centre for Disease Control', tier: 2, date: '2024-01-12', reportDetails: 'Seasonal Lassa fever activity. Contact tracing ongoing.', sourceUrl: 'https://ncdc.gov.ng/' },
+  { id: 'pol1', name: 'Karachi', country: 'Pakistan', lat: 24.86, lng: 67.01, cases: 12, deaths: 0, severity: 'watch', disease: 'Polio', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-11', reportDetails: 'Wild poliovirus type 1 detected. Emergency vaccination response.', sourceUrl: 'https://polioeradication.org/' },
 ];
 
-// Convert lat/lng to SVG coordinates (Natural Earth projection approximation)
-function toSVG(lat: number, lng: number, width = 1000, height = 500): { x: number; y: number } {
-  const x = ((lng + 180) / 360) * width;
+// Convert lat/lng to x/y percentage for the map
+function latLngToPercent(lat: number, lng: number): { x: number; y: number } {
+  // Mercator projection approximation
+  const x = ((lng + 180) / 360) * 100;
   const latRad = (lat * Math.PI) / 180;
   const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-  const y = height / 2 - (mercN * width) / (2 * Math.PI);
-  return { x: Math.max(0, Math.min(width, x)), y: Math.max(0, Math.min(height, y)) };
+  const y = 50 - (mercN * 100) / (2 * Math.PI);
+  return { x: Math.max(0, Math.min(100, x)), y: Math.max(5, Math.min(95, y)) };
 }
 
 interface WorldMapProps {
@@ -75,11 +102,11 @@ interface WorldMapProps {
   selectedSeverity?: string;
 }
 
-export default function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
+const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
   const { darkMode } = useStore();
   const [hoveredPoint, setHoveredPoint] = useState<MapPoint | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -88,247 +115,168 @@ export default function WorldMap({ onPointClick, selectedDisease = 'all', select
   });
 
   const handleMouseMove = (e: React.MouseEvent, point: MapPoint) => {
-    if (svgRef.current) {
-      const rect = svgRef.current.getBoundingClientRect();
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
       setTooltipPos({
         x: e.clientX - rect.left,
-        y: e.clientY - rect.top - 10,
+        y: e.clientY - rect.top,
       });
     }
     setHoveredPoint(point);
   };
 
-  // Colors
-  const waterColor = darkMode ? '#0a1628' : '#c8d8e8';
-  // landColor defined in gradients
-  const borderColor = darkMode ? '#2a3a4a' : '#b8c8d8';
-  const gridColor = darkMode ? '#1a2a3a' : '#d8e8f0';
+  const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
+  const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
 
   return (
-    <div className="relative w-full h-full overflow-hidden rounded-xl">
-      <svg
-        ref={svgRef}
-        viewBox="0 0 1000 500"
-        className="w-full h-full"
-        style={{ backgroundColor: waterColor }}
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <defs>
-          {/* Gradient for water */}
-          <linearGradient id="waterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={darkMode ? '#0c1a2c' : '#b8d0e8'} />
-            <stop offset="100%" stopColor={darkMode ? '#061018' : '#d8e8f0'} />
-          </linearGradient>
-          
-          {/* Land texture gradient */}
-          <linearGradient id="landGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={darkMode ? '#1c2c3c' : '#f0f0f0'} />
-            <stop offset="100%" stopColor={darkMode ? '#162636' : '#e0e0e0'} />
-          </linearGradient>
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden">
+      {/* Real NASA satellite map - Blue Marble (public domain) */}
+      <img 
+        src={SATELLITE_MAP_URL}
+        alt="NASA Blue Marble satellite view of Earth"
+        className="absolute inset-0 w-full h-full object-cover"
+        crossOrigin="anonymous"
+        style={{
+          filter: darkMode ? 'brightness(0.7) contrast(1.2) saturate(0.9)' : 'brightness(0.95) contrast(1.1) saturate(1.15)',
+        }}
+      />
+      
+      {/* Gradient overlay for better marker visibility */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          background: darkMode 
+            ? 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
+            : 'linear-gradient(to bottom, rgba(0,20,50,0.2) 0%, rgba(0,10,30,0.1) 50%, rgba(0,20,50,0.2) 100%)',
+        }}
+      />
 
-          {/* Glow filter for points */}
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
+      {/* Data point markers */}
+      {filteredPoints.map((point) => {
+        const color = getSeverityColor(point.severity);
+        const size = Math.max(8, Math.min(20, Math.log10(point.cases + 1) * 4 + 4));
+        const isCritical = point.severity === 'critical';
+        const isHovered = hoveredPoint?.id === point.id;
+        const pos = latLngToPercent(point.lat, point.lng);
 
-          {/* Pulse animation for critical */}
-          <radialGradient id="pulseGradient">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-
-        {/* Background */}
-        <rect width="100%" height="100%" fill="url(#waterGradient)" />
-
-        {/* Grid lines */}
-        <g opacity="0.3">
-          {Array.from({ length: 19 }, (_, i) => {
-            const x = (i * 1000) / 18;
-            return <line key={`vg-${i}`} x1={x} y1="0" x2={x} y2="500" stroke={gridColor} strokeWidth="0.5" />;
-          })}
-          {Array.from({ length: 10 }, (_, i) => {
-            const y = (i * 500) / 9;
-            return <line key={`hg-${i}`} x1="0" y1={y} x2="1000" y2={y} stroke={gridColor} strokeWidth="0.5" />;
-          })}
-        </g>
-
-        {/* Simplified continent paths - realistic shapes */}
-        <g fill="url(#landGradient)" stroke={borderColor} strokeWidth="0.5">
-          {/* North America */}
-          <path d="M40,45 Q60,30 90,35 L130,40 Q160,35 190,45 L230,55 Q260,65 270,90 L275,130 Q280,160 270,190 L255,220 Q240,245 220,250 L195,245 Q175,235 165,220 L155,200 Q145,175 130,160 L110,145 Q90,130 85,110 L75,85 Q60,60 40,45 Z" />
-          {/* Central America */}
-          <path d="M155,220 Q165,235 175,255 L185,275 Q195,290 190,305 L180,320 Q170,330 160,325 L155,310 Q150,290 155,270 L158,250 Q160,235 155,220 Z" />
-          {/* South America */}
-          <path d="M190,305 Q210,300 230,310 L260,330 Q285,350 295,380 L300,420 Q295,455 280,480 L255,495 Q230,500 215,490 L195,470 Q175,445 170,415 L168,380 Q165,350 175,325 L190,305 Z" />
-          {/* Greenland */}
-          <path d="M280,20 Q310,15 330,25 L345,40 Q355,55 350,75 L340,90 Q325,100 305,95 L285,85 Q270,70 275,50 L280,20 Z" />
-          {/* Europe */}
-          <path d="M430,50 Q450,40 480,45 L520,55 Q550,65 560,85 L565,110 Q560,130 545,145 L520,155 Q495,160 475,150 L455,135 Q440,115 435,90 L430,65 Q425,55 430,50 Z" />
-          {/* UK/Ireland */}
-          <path d="M400,70 Q415,65 425,75 L430,90 Q430,105 420,110 L405,108 Q395,100 395,85 L400,70 Z" />
-          {/* Scandinavia */}
-          <path d="M480,20 Q510,15 530,25 L545,45 Q555,70 545,95 L530,85 Q515,70 500,55 L485,40 Q475,30 480,20 Z" />
-          {/* Africa */}
-          <path d="M430,160 Q470,150 510,160 L560,180 Q590,210 600,260 L605,320 Q600,375 575,420 L540,455 Q495,475 460,465 L435,445 Q415,410 410,365 L408,310 Q405,250 415,200 L430,160 Z" />
-          {/* Russia */}
-          <path d="M545,25 Q620,15 720,20 L820,30 Q890,45 920,65 L935,90 Q940,115 920,135 L880,150 Q820,160 760,155 L700,145 Q640,135 600,115 L565,90 Q545,65 545,25 Z" />
-          {/* Middle East */}
-          <path d="M560,130 Q590,120 620,130 L650,145 Q670,160 665,185 L655,210 Q640,225 615,220 L585,210 Q565,195 560,170 L555,145 Q555,135 560,130 Z" />
-          {/* South Asia */}
-          <path d="M650,145 Q680,135 720,145 L755,165 Q780,190 785,230 L780,270 Q770,295 745,305 L710,310 Q680,300 665,275 L655,240 Q645,200 650,170 L650,145 Z" />
-          {/* Southeast Asia */}
-          <path d="M740,230 Q770,220 800,235 L830,260 Q850,285 845,315 L835,340 Q815,360 785,355 L755,340 Q735,320 735,290 L738,260 Q738,245 740,230 Z" />
-          {/* East Asia */}
-          <path d="M760,100 Q810,90 860,100 L900,120 Q925,145 920,180 L905,215 Q880,240 845,235 L805,225 Q775,210 760,180 L755,145 Q755,115 760,100 Z" />
-          {/* Japan */}
-          <path d="M880,120 Q895,115 905,125 L915,145 Q920,165 912,180 L898,185 Q885,180 882,160 L880,140 Q878,130 880,120 Z" />
-          {/* Australia */}
-          <path d="M780,340 Q830,330 880,345 L920,375 Q945,410 940,450 L925,480 Q890,500 845,495 L800,480 Q770,455 765,415 L770,375 Q770,355 780,340 Z" />
-          {/* New Zealand */}
-          <path d="M945,450 Q955,445 965,455 L970,475 Q968,490 958,495 L945,490 Q938,480 940,465 L945,450 Z" />
-          {/* Indonesia/Philippines */}
-          <path d="M800,300 Q820,295 835,305 L845,320 Q850,335 842,345 L825,350 Q810,345 805,330 L800,315 Q798,305 800,300 Z" />
-          <path d="M850,310 Q865,305 875,315 L880,330 Q878,345 868,350 L855,348 Q845,340 848,325 L850,310 Z" />
-        </g>
-
-        {/* Travel paths */}
-        {filteredPoints.map((point) => {
-          if (!point.travelPaths) return null;
-          const from = toSVG(point.lat, point.lng);
-          return point.travelPaths.map((path, i) => {
-            const to = toSVG(path.toLat, path.toLng);
-            const midX = (from.x + to.x) / 2;
-            const midY = Math.min(from.y, to.y) - 30;
-            const color = getSeverityColor(point.severity);
-            return (
-              <g key={`path-${point.id}-${i}`}>
-                <path
-                  d={`M${from.x},${from.y} Q${midX},${midY} ${to.x},${to.y}`}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="1.5"
-                  strokeDasharray="4,4"
-                  opacity="0.5"
-                >
-                  <animate attributeName="stroke-dashoffset" from="8" to="0" dur="1s" repeatCount="indefinite" />
-                </path>
-                {/* Animated dot */}
-                <circle r="3" fill={color}>
-                  <animateMotion
-                    path={`M${from.x},${from.y} Q${midX},${midY} ${to.x},${to.y}`}
-                    dur="3s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              </g>
-            );
-          });
-        })}
-
-        {/* Data points */}
-        {filteredPoints.map((point) => {
-          const { x, y } = toSVG(point.lat, point.lng);
-          const color = getSeverityColor(point.severity);
-          const size = Math.max(5, Math.min(18, Math.log10(point.cases + 1) * 4 + 3));
-          const isCritical = point.severity === 'critical';
-          const isHovered = hoveredPoint?.id === point.id;
-
-          return (
-            <g
-              key={point.id}
-              onClick={() => onPointClick(point)}
-              onMouseMove={(e) => handleMouseMove(e, point)}
-              onMouseLeave={() => setHoveredPoint(null)}
-              className="cursor-pointer"
-              style={{ transition: 'transform 0.2s ease' }}
-            >
-              {/* Critical pulse rings */}
-              {isCritical && (
-                <>
-                  <circle cx={x} cy={y} r={size} fill="none" stroke={color} strokeWidth="1" opacity="0">
-                    <animate attributeName="r" values={`${size};${size * 2.5}`} dur="2s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" values="0.5;0" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                  <circle cx={x} cy={y} r={size} fill="none" stroke={color} strokeWidth="1" opacity="0">
-                    <animate attributeName="r" values={`${size};${size * 2.5}`} dur="2s" repeatCount="indefinite" begin="1s" />
-                    <animate attributeName="opacity" values="0.5;0" dur="2s" repeatCount="indefinite" begin="1s" />
-                  </circle>
-                </>
-              )}
-              {/* Main dot */}
-              <circle
-                cx={x}
-                cy={y}
-                r={isHovered ? size * 1.3 : size}
-                fill={color}
-                opacity={0.85}
-                filter={isHovered ? 'url(#glow)' : undefined}
-                style={{ transition: 'r 0.2s ease' }}
-              >
-                {!isCritical && (
-                  <animate attributeName="opacity" values="0.7;0.95;0.7" dur="2s" repeatCount="indefinite" />
-                )}
-              </circle>
-              {/* Inner highlight */}
-              <circle cx={x - size * 0.2} cy={y - size * 0.2} r={size * 0.3} fill="white" opacity="0.3" />
-              {/* Clickable area */}
-              <circle cx={x} cy={y} r={Math.max(size + 5, 15)} fill="transparent" />
-            </g>
-          );
-        })}
-
-        {/* Equator and tropics (subtle) */}
-        <g stroke={gridColor} strokeWidth="0.3" strokeDasharray="10,5" opacity="0.5">
-          <line x1="0" y1="250" x2="1000" y2="250" /> {/* Equator */}
-        </g>
-      </svg>
+        return (
+          <div
+            key={point.id}
+            className="absolute cursor-pointer transition-transform duration-200"
+            style={{
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              transform: `translate(-50%, -50%) scale(${isHovered ? 1.3 : 1})`,
+              zIndex: isHovered ? 100 : isCritical ? 50 : 10,
+            }}
+            onClick={() => onPointClick(point)}
+            onMouseEnter={(e) => handleMouseMove(e, point)}
+            onMouseMove={(e) => handleMouseMove(e, point)}
+            onMouseLeave={() => setHoveredPoint(null)}
+          >
+            {/* Pulse animation for critical */}
+            {isCritical && (
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: size * 2,
+                  height: size * 2,
+                  backgroundColor: color,
+                  opacity: 0.4,
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            )}
+            
+            {/* Glow effect */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                width: size * 1.8,
+                height: size * 1.8,
+                backgroundColor: color,
+                opacity: 0.3,
+                filter: 'blur(4px)',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+            
+            {/* Main marker */}
+            <div
+              className="relative rounded-full border-2 shadow-lg"
+              style={{
+                width: size,
+                height: size,
+                backgroundColor: color,
+                borderColor: 'rgba(255,255,255,0.8)',
+                boxShadow: `0 0 ${size}px ${color}`,
+              }}
+            />
+          </div>
+        );
+      })}
 
       {/* Tooltip */}
       {hoveredPoint && (
         <div
-          className="absolute z-50 pointer-events-none px-4 py-3 rounded-xl max-w-[280px]"
+          className="absolute z-[200] pointer-events-none"
           style={{
-            left: Math.min(tooltipPos.x, (svgRef.current?.clientWidth || 300) - 290),
-            top: tooltipPos.y - 80,
-            backgroundColor: darkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-            border: `1px solid ${darkMode ? '#333' : '#ddd'}`,
+            left: tooltipPos.x,
+            top: tooltipPos.y - 10,
+            transform: 'translate(-50%, -100%)',
           }}
         >
-          <div className="text-center">
-            <p className="text-[15px] font-semibold" style={{ color: darkMode ? '#F5F5F7' : '#1D1D1F' }}>
-              {hoveredPoint.disease}
-            </p>
-            <p className="text-[13px]" style={{ color: darkMode ? '#A1A1A6' : '#6E6E73' }}>
-              {hoveredPoint.name}, {hoveredPoint.country}
-            </p>
-            <div className="flex items-center justify-center gap-3 mt-2">
-              <span className="text-[13px]" style={{ fontFamily: 'monospace', color: darkMode ? '#F5F5F7' : '#1D1D1F' }}>
-                {hoveredPoint.cases.toLocaleString()} cases
-              </span>
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full"
+          <div
+            className="rounded-xl px-4 py-3 shadow-2xl min-w-[280px] max-w-[360px]"
+            style={{
+              backgroundColor: darkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(20px)',
+              border: darkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: getSeverityColor(hoveredPoint.severity) }}
               />
+              <span className="text-[15px] font-semibold" style={{ color: textPrimary }}>
+                {hoveredPoint.name}, {hoveredPoint.country}
+              </span>
             </div>
-            <p className="text-[11px] mt-2 flex items-center justify-center gap-1" style={{ color: darkMode ? '#6E6E73' : '#86868B' }}>
-              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: hoveredPoint.tier <= 2 ? '#34C759' : '#FF9500' }} />
-              {hoveredPoint.source} · T{hoveredPoint.tier} · {hoveredPoint.date}
-            </p>
-            <p className="text-[11px] mt-1" style={{ color: darkMode ? '#6E6E73' : '#86868B' }}>
-              Click for details
-            </p>
+            <div className="text-[13px] mb-2" style={{ color: textSecondary }}>
+              {hoveredPoint.disease} - {hoveredPoint.severity.charAt(0).toUpperCase() + hoveredPoint.severity.slice(1)}
+            </div>
+            <div className="flex gap-4 text-[12px]">
+              <div>
+                <span style={{ color: textSecondary }}>Cases: </span>
+                <span className="font-medium" style={{ color: textPrimary }}>{hoveredPoint.cases.toLocaleString()}</span>
+              </div>
+              <div>
+                <span style={{ color: textSecondary }}>Deaths: </span>
+                <span className="font-medium" style={{ color: '#FF3B30' }}>{hoveredPoint.deaths.toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="text-[11px] mt-2 leading-relaxed" style={{ color: textSecondary }}>
+              {hoveredPoint.reportDetails.slice(0, 120)}...
+            </div>
+            <div className="text-[10px] mt-2 flex items-center gap-1" style={{ color: textSecondary }}>
+              <span>Source: {hoveredPoint.source}</span>
+              <span>|</span>
+              <span>{hoveredPoint.date}</span>
+            </div>
+            <div className="text-[10px] mt-1 text-blue-400">
+              Click for full details and source link
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-}
+});
 
+export default WorldMap;
 export type { MapPoint };

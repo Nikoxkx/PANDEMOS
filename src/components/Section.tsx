@@ -32,15 +32,6 @@ export default function Section({
 
   const isDark = dark || darkMode;
 
-  let bgColor = 'transparent';
-  if (dark) {
-    bgColor = '#000000';
-  } else if (alt) {
-    bgColor = isDark ? '#0A0A0A' : '#F5F5F7';
-  } else {
-    bgColor = isDark ? '#000000' : '#FFFFFF';
-  }
-
   const textPrimary = isDark || dark ? '#F5F5F7' : '#1D1D1F';
   const textSecondary = isDark || dark ? '#A1A1A6' : '#6E6E73';
   const textTertiary = isDark || dark ? '#6E6E73' : '#86868B';
@@ -49,8 +40,10 @@ export default function Section({
     <section
       ref={ref}
       id={id}
-      className={`w-full py-[80px] md:py-[120px] ${className}`}
-      style={{ backgroundColor: bgColor }}
+      className={`w-full py-[80px] md:py-[120px] ${alt ? (isDark ? 'bg-white/[0.02]' : 'bg-black/[0.02]') : ''} ${className}`}
+      style={{ 
+        backdropFilter: alt ? 'blur(10px)' : undefined,
+      }}
     >
       <div
         className={`mx-auto px-6 md:px-10 lg:px-16 ${
