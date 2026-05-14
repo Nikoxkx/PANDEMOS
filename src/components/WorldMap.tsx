@@ -2,8 +2,8 @@ import { useState, useRef, memo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
 
-// NASA Blue Marble satellite image (public domain)
-const SATELLITE_MAP_URL = 'https://eoimages.gsfc.nasa.gov/images/imagerecords/74000/74393/world.200412.3x5400x2700.jpg';
+// Local satellite map image
+const SATELLITE_MAP_URL = '/world-satellite-map.jpg';
 
 interface MapPoint {
   id: string;
