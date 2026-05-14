@@ -108,6 +108,7 @@ function MapController({ darkMode }: { darkMode: boolean }) {
 const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
   const { darkMode } = useStore();
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
+  const [mapType, setMapType] = useState<'dark' | 'satellite'>('dark');
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -118,10 +119,14 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
   const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
   const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
 
-  // Dark CartoDB tiles for dark mode, light for light mode
-  const tileUrl = darkMode
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  // Tile URLs for different map types
+  const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  const satelliteTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  
+  const tileUrl = mapType === 'satellite' ? satelliteTileUrl : darkTileUrl;
+  const tileAttribution = mapType === 'satellite' 
+    ? '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
   const getMarkerRadius = (cases: number, severity: string) => {
     const baseSize = Math.max(6, Math.min(18, Math.log10(cases + 1) * 4 + 4));
@@ -151,9 +156,10 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
         {/* Zoom controls positioned top-right */}
         <ZoomControl position="topright" />
         
-        {/* CartoDB dark tiles */}
+        {/* Map tiles - dark CartoDB or satellite */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          key={mapType}
+          attribution={tileAttribution}
           url={tileUrl}
         />
 
@@ -264,6 +270,45 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
           );
         })}
       </MapContainer>
+
+      {/* Map type toggle */}
+      <div 
+        className="absolute top-4 left-4 z-[1000] flex rounded-lg overflow-hidden"
+        style={{
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        }}
+      >
+        <button
+          onClick={() => setMapType('dark')}
+          className="px-3 py-2 text-xs font-medium transition-colors border-0 cursor-pointer"
+          style={{
+            backgroundColor: mapType === 'dark' 
+              ? (darkMode ? '#3a3a4e' : '#1D1D1F')
+              : (darkMode ? '#2a2a3e' : '#ffffff'),
+            color: mapType === 'dark'
+              ? '#ffffff'
+              : (darkMode ? '#A1A1A6' : '#6E6E73'),
+            fontFamily: 'inherit',
+          }}
+        >
+          Dark
+        </button>
+        <button
+          onClick={() => setMapType('satellite')}
+          className="px-3 py-2 text-xs font-medium transition-colors border-0 cursor-pointer"
+          style={{
+            backgroundColor: mapType === 'satellite' 
+              ? (darkMode ? '#3a3a4e' : '#1D1D1F')
+              : (darkMode ? '#2a2a3e' : '#ffffff'),
+            color: mapType === 'satellite'
+              ? '#ffffff'
+              : (darkMode ? '#A1A1A6' : '#6E6E73'),
+            fontFamily: 'inherit',
+          }}
+        >
+          Satellite
+        </button>
+      </div>
 
       {/* Custom CSS for Leaflet in dark mode */}
       <style>{`
