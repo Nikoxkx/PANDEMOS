@@ -100,13 +100,18 @@ interface WorldMapProps {
   onPointClick: (point: MapPoint) => void;
   selectedDisease?: string;
   selectedSeverity?: string;
+  zoomLevel?: number;
 }
 
-const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
+const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all', zoomLevel = 1 }: WorldMapProps) {
   const { darkMode } = useStore();
   const [hoveredPoint, setHoveredPoint] = useState<MapPoint | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -125,99 +130,153 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
     setHoveredPoint(point);
   };
 
+  const handleMapMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel > 1 && (e.target as HTMLElement).classList.contains('map-container')) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panX, y: e.clientY - panY });
+    }
+  };
+
+  const handleMapMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoomLevel > 1) {
+      const maxPanX = (containerRef.current?.clientWidth || 0) * (zoomLevel - 1) / 2;
+      const maxPanY = (containerRef.current?.clientHeight || 0) * (zoomLevel - 1) / 2;
+      
+      let newPanX = e.clientX - dragStart.x;
+      let newPanY = e.clientY - dragStart.y;
+      
+      newPanX = Math.max(-maxPanX, Math.min(maxPanX, newPanX));
+      newPanY = Math.max(-maxPanY, Math.min(maxPanY, newPanY));
+      
+      setPanX(newPanX);
+      setPanY(newPanY);
+    }
+  };
+
+  const handleMapMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    setPanX(0);
+    setPanY(0);
+  }, [zoomLevel]);
+
   const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
   const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
 
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={{ backgroundColor: darkMode ? '#0a1628' : '#1a3a5c' }}>
-      {/* Real NASA satellite map - Blue Marble (public domain) */}
-      <img 
-        src={SATELLITE_MAP_URL}
-        alt="NASA Blue Marble satellite view of Earth"
-        className="absolute inset-0 w-full h-full object-cover"
+    <div 
+      ref={containerRef} 
+      className="relative w-full h-full overflow-hidden map-container"
+      style={{ 
+        backgroundColor: darkMode ? '#0a1628' : '#1a3a5c',
+        cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+      }}
+      onMouseDown={handleMapMouseDown}
+      onMouseMove={handleMapMouseMove}
+      onMouseUp={handleMapMouseUp}
+      onMouseLeave={handleMapMouseUp}
+    >
+      {/* Zoomed map container */}
+      <div
         style={{
-          filter: darkMode ? 'brightness(0.7) contrast(1.2) saturate(0.9)' : 'brightness(0.95) contrast(1.1) saturate(1.15)',
+          width: '100%',
+          height: '100%',
+          transform: `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`,
+          transformOrigin: 'center',
+          transition: isDragging ? 'none' : 'transform 0.3s ease-out',
         }}
-      />
+      >
+        {/* Real NASA satellite map - Blue Marble (public domain) */}
+        <img 
+          src={SATELLITE_MAP_URL}
+          alt="NASA Blue Marble satellite view of Earth"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            filter: darkMode ? 'brightness(0.7) contrast(1.2) saturate(0.9)' : 'brightness(0.95) contrast(1.1) saturate(1.15)',
+          }}
+        />
       
-      {/* Gradient overlay for better marker visibility */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: darkMode 
-            ? 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
-            : 'linear-gradient(to bottom, rgba(0,20,50,0.2) 0%, rgba(0,10,30,0.1) 50%, rgba(0,20,50,0.2) 100%)',
-        }}
-      />
+        {/* Gradient overlay for better marker visibility */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: darkMode 
+              ? 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
+              : 'linear-gradient(to bottom, rgba(0,20,50,0.2) 0%, rgba(0,10,30,0.1) 50%, rgba(0,20,50,0.2) 100%)',
+          }}
+        />
 
-      {/* Data point markers */}
-      {filteredPoints.map((point) => {
-        const color = getSeverityColor(point.severity);
-        const size = Math.max(8, Math.min(20, Math.log10(point.cases + 1) * 4 + 4));
-        const isCritical = point.severity === 'critical';
-        const isHovered = hoveredPoint?.id === point.id;
-        const pos = latLngToPercent(point.lat, point.lng);
+        {/* Data point markers */}
+        {filteredPoints.map((point) => {
+          const color = getSeverityColor(point.severity);
+          const size = Math.max(8, Math.min(20, Math.log10(point.cases + 1) * 4 + 4));
+          const isCritical = point.severity === 'critical';
+          const isHovered = hoveredPoint?.id === point.id;
+          const pos = latLngToPercent(point.lat, point.lng);
 
-        return (
-          <div
-            key={point.id}
-            className="absolute cursor-pointer transition-transform duration-200"
-            style={{
-              left: `${pos.x}%`,
-              top: `${pos.y}%`,
-              transform: `translate(-50%, -50%) scale(${isHovered ? 1.3 : 1})`,
-              zIndex: isHovered ? 100 : isCritical ? 50 : 10,
-            }}
-            onClick={() => onPointClick(point)}
-            onMouseEnter={(e) => handleMouseMove(e, point)}
-            onMouseMove={(e) => handleMouseMove(e, point)}
-            onMouseLeave={() => setHoveredPoint(null)}
-          >
-            {/* Pulse animation for critical */}
-            {isCritical && (
+          return (
+            <div
+              key={point.id}
+              className="absolute cursor-pointer transition-transform duration-200"
+              style={{
+                left: `${pos.x}%`,
+                top: `${pos.y}%`,
+                transform: `translate(-50%, -50%) scale(${isHovered ? 1.3 : 1})`,
+                zIndex: isHovered ? 100 : isCritical ? 50 : 10,
+              }}
+              onClick={() => onPointClick(point)}
+              onMouseEnter={(e) => handleMouseMove(e, point)}
+              onMouseMove={(e) => handleMouseMove(e, point)}
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              {/* Pulse animation for critical */}
+              {isCritical && (
+                <div
+                  className="absolute rounded-full animate-ping"
+                  style={{
+                    width: size * 2,
+                    height: size * 2,
+                    backgroundColor: color,
+                    opacity: 0.4,
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                />
+              )}
+              
+              {/* Glow effect */}
               <div
-                className="absolute rounded-full animate-ping"
+                className="absolute rounded-full"
                 style={{
-                  width: size * 2,
-                  height: size * 2,
+                  width: size * 1.8,
+                  height: size * 1.8,
                   backgroundColor: color,
-                  opacity: 0.4,
+                  opacity: 0.3,
+                  filter: 'blur(4px)',
                   left: '50%',
                   top: '50%',
                   transform: 'translate(-50%, -50%)',
                 }}
               />
-            )}
-            
-            {/* Glow effect */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                width: size * 1.8,
-                height: size * 1.8,
-                backgroundColor: color,
-                opacity: 0.3,
-                filter: 'blur(4px)',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            />
-            
-            {/* Main marker */}
-            <div
-              className="relative rounded-full border-2 shadow-lg"
-              style={{
-                width: size,
-                height: size,
-                backgroundColor: color,
-                borderColor: 'rgba(255,255,255,0.8)',
-                boxShadow: `0 0 ${size}px ${color}`,
-              }}
-            />
-          </div>
-        );
-      })}
+              
+              {/* Main marker */}
+              <div
+                className="relative rounded-full border-2 shadow-lg"
+                style={{
+                  width: size,
+                  height: size,
+                  backgroundColor: color,
+                  borderColor: 'rgba(255,255,255,0.8)',
+                  boxShadow: `0 0 ${size}px ${color}`,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
 
       {/* Tooltip */}
       {hoveredPoint && (

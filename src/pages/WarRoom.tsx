@@ -14,6 +14,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
   const [filterDisease, setFilterDisease] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
 
   const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
   const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
@@ -75,6 +76,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
             onPointClick={handlePointClick}
             selectedDisease={filterDisease}
             selectedSeverity={filterSeverity}
+            zoomLevel={zoomLevel}
           />
         </div>
 
@@ -192,17 +194,22 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
           </div>
           
           <div className="hidden md:flex items-center gap-1">
-            {['1x', '2x', '5x'].map(s => (
+            {[
+              { label: '1x', value: 1 },
+              { label: '2x', value: 2 },
+              { label: '5x', value: 5 },
+            ].map(z => (
               <button
-                key={s}
-                className="text-[11px] px-2 py-1 rounded-md border-0 cursor-pointer bg-transparent transition-colors"
+                key={z.value}
+                onClick={() => setZoomLevel(z.value)}
+                className="text-[11px] px-2 py-1 rounded-md border-0 cursor-pointer transition-colors"
                 style={{ 
-                  color: s === '1x' ? textPrimary : textTertiary,
-                  backgroundColor: s === '1x' ? (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                  color: zoomLevel === z.value ? textPrimary : textTertiary,
+                  backgroundColor: zoomLevel === z.value ? (darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent',
                   fontFamily: 'inherit' 
                 }}
               >
-                {s}
+                {z.label}
               </button>
             ))}
           </div>
