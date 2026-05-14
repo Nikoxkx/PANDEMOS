@@ -1,5 +1,4 @@
 import { ReactNode } from 'react';
-import { useStore } from '../store/useStore';
 
 interface CardProps {
   children: ReactNode;
@@ -11,12 +10,6 @@ interface CardProps {
 }
 
 export default function Card({ children, className = '', onClick, severity, delay = 0, hoverable = true }: CardProps) {
-  const { darkMode } = useStore();
-
-  const bg = darkMode ? '#1C1C1E' : '#FFFFFF';
-  const border = darkMode ? '1px solid #2C2C2E' : '1px solid #D2D2D7';
-  const shadow = darkMode ? '0 2px 12px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.08)';
-
   return (
     <div
       onClick={onClick}
@@ -24,23 +17,27 @@ export default function Card({ children, className = '', onClick, severity, dela
         hoverable ? 'transition-all duration-300 cursor-pointer' : ''
       } ${onClick ? 'cursor-pointer' : ''} ${className}`}
       style={{
-        backgroundColor: bg,
-        border,
-        boxShadow: shadow,
+        background: 'rgba(28, 28, 30, 0.5)',
+        backdropFilter: 'blur(40px)',
+        WebkitBackdropFilter: 'blur(40px)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
         animationDelay: `${delay}ms`,
       }}
       onMouseEnter={(e) => {
         if (hoverable) {
           e.currentTarget.style.transform = 'translateY(-4px)';
-          e.currentTarget.style.boxShadow = darkMode
-            ? '0 8px 32px rgba(0,0,0,0.3)'
-            : '0 4px 24px rgba(0,0,0,0.12)';
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+          e.currentTarget.style.boxShadow = '0 16px 48px rgba(0, 0, 0, 0.4)';
         }
       }}
       onMouseLeave={(e) => {
         if (hoverable) {
           e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = shadow;
+          e.currentTarget.style.background = 'rgba(28, 28, 30, 0.5)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+          e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.3)';
         }
       }}
     >

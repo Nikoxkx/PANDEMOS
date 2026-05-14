@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { useScrollReveal } from '../hooks/useScrollReveal';
-import { useStore } from '../store/useStore';
 
 interface SectionProps {
   label?: string;
@@ -21,29 +20,14 @@ export default function Section({
   body,
   children,
   alt = false,
-  dark = false,
   wide = false,
   fullBleed = false,
   className = '',
   id,
 }: SectionProps) {
   const { ref, isVisible } = useScrollReveal(0.1);
-  const { darkMode } = useStore();
 
-  const isDark = dark || darkMode;
-
-  let bgColor = 'transparent';
-  if (dark) {
-    bgColor = '#000000';
-  } else if (alt) {
-    bgColor = isDark ? '#0A0A0A' : '#F5F5F7';
-  } else {
-    bgColor = isDark ? '#000000' : '#FFFFFF';
-  }
-
-  const textPrimary = isDark || dark ? '#F5F5F7' : '#1D1D1F';
-  const textSecondary = isDark || dark ? '#A1A1A6' : '#6E6E73';
-  const textTertiary = isDark || dark ? '#6E6E73' : '#86868B';
+  const bgColor = alt ? '#0A0A0A' : '#000000';
 
   return (
     <section
@@ -57,17 +41,16 @@ export default function Section({
           fullBleed ? 'max-w-full' : wide ? 'max-w-[1440px]' : 'max-w-[1200px]'
         }`}
       >
-        {/* Header */}
         {(label || heading || body) && (
           <div className="text-center mb-12 md:mb-16">
             {label && (
               <p
                 className="text-[12px] uppercase tracking-[0.1em] font-medium mb-4"
                 style={{
-                  color: textTertiary,
+                  color: '#6E6E73',
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'opacity 0.5s cubic-bezier(0.25,0.1,0.25,1), transform 0.5s cubic-bezier(0.25,0.1,0.25,1)',
+                  transition: 'opacity 0.5s ease, transform 0.5s ease',
                 }}
               >
                 {label}
@@ -75,13 +58,13 @@ export default function Section({
             )}
             {heading && (
               <h2
-                className="text-[32px] md:text-[40px] font-semibold leading-[1.2] tracking-tight max-w-[700px] mx-auto whitespace-pre-line"
+                className="text-[32px] md:text-[40px] font-semibold leading-[1.2] tracking-tight max-w-[700px] mx-auto text-balance"
                 style={{
-                  color: textPrimary,
+                  color: '#F5F5F7',
                   letterSpacing: '-0.02em',
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'opacity 0.5s cubic-bezier(0.25,0.1,0.25,1) 0.1s, transform 0.5s cubic-bezier(0.25,0.1,0.25,1) 0.1s',
+                  transition: 'opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s',
                 }}
               >
                 {heading}
@@ -91,10 +74,10 @@ export default function Section({
               <p
                 className="text-[17px] md:text-[19px] leading-[1.5] max-w-[580px] mx-auto mt-5"
                 style={{
-                  color: textSecondary,
+                  color: '#A1A1A6',
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-                  transition: 'opacity 0.5s cubic-bezier(0.25,0.1,0.25,1) 0.2s, transform 0.5s cubic-bezier(0.25,0.1,0.25,1) 0.2s',
+                  transition: 'opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s',
                 }}
               >
                 {body}
@@ -102,13 +85,11 @@ export default function Section({
             )}
           </div>
         )}
-
-        {/* Content */}
         <div
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
-            transition: 'opacity 0.6s cubic-bezier(0.25,0.1,0.25,1) 0.3s, transform 0.6s cubic-bezier(0.25,0.1,0.25,1) 0.3s',
+            transition: 'opacity 0.6s ease 0.3s, transform 0.6s ease 0.3s',
           }}
         >
           {children}

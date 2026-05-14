@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #FFFFFF;
-  --color-bg-alt: #F5F5F7;
-  --color-surface: #FFFFFF;
-  --color-text-primary: #1D1D1F;
-  --color-text-secondary: #6E6E73;
-  --color-text-tertiary: #86868B;
-  --color-border: #D2D2D7;
-  --color-divider: #E8E8ED;
+  --color-bg-primary: #000000;
+  --color-bg-alt: #0A0A0A;
+  --color-surface: rgba(28, 28, 30, 0.6);
+  --color-surface-glass: rgba(255, 255, 255, 0.05);
+  --color-text-primary: #F5F5F7;
+  --color-text-secondary: #A1A1A6;
+  --color-text-tertiary: #6E6E73;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-glass: rgba(255, 255, 255, 0.08);
 
   --color-critical: #FF3B30;
   --color-warning: #FF9500;
@@ -32,18 +33,40 @@ html {
 }
 
 body {
-  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
-  color: #1D1D1F;
-  background: #FFFFFF;
+  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #F5F5F7;
+  background: #000000;
   margin: 0;
   padding: 0;
   overflow-x: hidden;
 }
 
-.dark body,
-body.dark {
-  color: #F5F5F7;
-  background: #000000;
+/* Glass morphism utilities */
+.glass {
+  background: rgba(28, 28, 30, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-card {
+  background: rgba(28, 28, 30, 0.5);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Custom scrollbar */
@@ -54,21 +77,14 @@ body.dark {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D2D2D7;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
-
-/* Preloader animation */
-@keyframes draw-circle {
-  from { stroke-dashoffset: 251; }
-  to { stroke-dashoffset: 0; }
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
-@keyframes bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(8px); }
-}
-
+/* Animations */
 @keyframes pulse-ring {
   0% { transform: scale(1); opacity: 0.6; }
   100% { transform: scale(2.5); opacity: 0; }
@@ -79,23 +95,17 @@ body.dark {
   50% { opacity: 1; }
 }
 
-@keyframes expand-line {
-  from { width: 0; }
-  to { width: 200px; }
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 59, 48, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(255, 59, 48, 0.5); }
 }
 
-@keyframes type-in {
-  from { width: 0; }
-  to { width: 100%; }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
-@keyframes counter-flash {
-  0% { background-color: transparent; }
-  50% { background-color: #F5F5F7; }
-  100% { background-color: transparent; }
-}
-
-/* Sparkline override */
+/* Recharts overrides */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   display: none;
