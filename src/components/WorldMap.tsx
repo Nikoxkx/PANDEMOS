@@ -88,6 +88,7 @@ const outbreakData: MapPoint[] = [
 
 interface WorldMapProps {
   onPointClick: (point: MapPoint) => void;
+  onNavigate?: (path: string) => void;
   selectedDisease?: string;
   selectedSeverity?: string;
 }
@@ -159,28 +160,26 @@ const createPinIcon = (severity: string) => {
   });
 };
 
-const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
+const WorldMap = memo(function WorldMap({ onPointClick, onNavigate, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
   const { darkMode } = useStore();
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
   const [mapType, setMapType] = useState<'dark' | 'satellite'>('dark');
-  const [currentZoom, setCurrentZoom] = useState(2);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [lastInteraction, setLastInteraction] = useState(Date.now());
+  const [hideTimer, setHideTimer] = useState<NodeJS.Timeout | null>(null);
   
-  // Hide controls after 5 seconds of inactivity
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (Date.now() - lastInteraction > 5000) {
-        setControlsVisible(false);
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [lastInteraction]);
-
+  // Reset 5 second timer on interaction
   const handleInteraction = () => {
-    setLastInteraction(Date.now());
     setControlsVisible(true);
+    if (hideTimer) clearTimeout(hideTimer);
+    const timer = setTimeout(() => setControlsVisible(false), 5000);
+    setHideTimer(timer);
   };
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setControlsVisible(false), 5000);
+    setHideTimer(timer);
+    return () => { if (hideTimer) clearTimeout(hideTimer); };
+  }, []);
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -323,14 +322,35 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
                     </span>
                   </div>
                   
-                  <div style={{ 
-                    fontSize: '11px', 
-                    color: '#6E6E73',
-                  }}>
-                    Source: {point.source} &middot; {point.date}
-                  </div>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#6E6E73',
+                  marginBottom: '10px',
+                }}>
+                  Source: {point.source} &middot; {point.date}
                 </div>
-              </Popup>
+                
+                {onNavigate && (
+                  <button
+                    onClick={() => onNavigate(`/diseases/${point.disease.toLowerCase().replace(/\s+/g, '-')}`)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      color: '#fff',
+                      backgroundColor: getSeverityColor(point.severity),
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    View {point.disease} Details →
+                  </button>
+                )}
+              </div>
+            </Popup>
             </Marker>
           );
         })}

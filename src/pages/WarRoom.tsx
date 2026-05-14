@@ -74,6 +74,7 @@ export default function WarRoom({ onNavigate }: WarRoomProps) {
         <div className="absolute inset-0">
           <WorldMap
             onPointClick={handlePointClick}
+            onNavigate={onNavigate}
             selectedDisease={filterDisease}
             selectedSeverity={filterSeverity}
           />
