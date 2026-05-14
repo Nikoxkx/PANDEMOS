@@ -1,5 +1,6 @@
 import { useState, useEffect, memo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, ZoomControl, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
 import 'leaflet/dist/leaflet.css';
@@ -91,8 +92,8 @@ interface WorldMapProps {
   selectedSeverity?: string;
 }
 
-// Component to handle map view changes
-function MapController({ darkMode }: { darkMode: boolean }) {
+// Component to handle map view changes and track zoom level
+function MapController({ darkMode, onZoomChange }: { darkMode: boolean; onZoomChange: (zoom: number) => void }) {
   const map = useMap();
   
   useEffect(() => {
@@ -100,15 +101,64 @@ function MapController({ darkMode }: { darkMode: boolean }) {
     setTimeout(() => {
       map.invalidateSize();
     }, 100);
-  }, [map]);
+    
+    // Track zoom changes
+    const handleZoom = () => {
+      onZoomChange(map.getZoom());
+    };
+    
+    map.on('zoomend', handleZoom);
+    return () => {
+      map.off('zoomend', handleZoom);
+    };
+  }, [map, onZoomChange]);
 
   return null;
 }
+
+// Create custom pin icon
+const createPinIcon = (severity: string) => {
+  const color = getSeverityColor(severity);
+  const svgIcon = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">
+      <defs>
+        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
+        </filter>
+      </defs>
+      <path d="M12 0C5.4 0 0 5.4 0 12c0 7.2 12 20 12 20s12-12.8 12-20C24 5.4 18.6 0 12 0z" 
+            fill="${color}" 
+            stroke="rgba(255,255,255,0.9)" 
+            stroke-width="1.5"
+            filter="url(#shadow)"/>
+      <circle cx="12" cy="11" r="4" fill="rgba(255,255,255,0.9)"/>
+    </svg>
+  `;
+  
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-pin-icon',
+    iconSize: [24, 32],
+    iconAnchor: [12, 32],
+    popupAnchor: [0, -32],
+  });
+};
 
 const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
   const { darkMode } = useStore();
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
   const [mapType, setMapType] = useState<'dark' | 'satellite'>('dark');
+  const [currentZoom, setCurrentZoom] = useState(2);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  
+  // Show/hide controls based on zoom level
+  useEffect(() => {
+    if (currentZoom > 5) {
+      setControlsVisible(false);
+    } else {
+      setControlsVisible(true);
+    }
+  }, [currentZoom]);
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -128,11 +178,7 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
     ? '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-  const getMarkerRadius = (cases: number, severity: string) => {
-    const baseSize = Math.max(6, Math.min(18, Math.log10(cases + 1) * 4 + 4));
-    if (severity === 'critical') return baseSize * 1.2;
-    return baseSize;
-  };
+
 
   return (
     <div className="relative w-full h-full">
@@ -151,7 +197,7 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
           background: darkMode ? '#1a1a2e' : '#e8e8e8',
         }}
       >
-        <MapController darkMode={darkMode} />
+        <MapController darkMode={darkMode} onZoomChange={setCurrentZoom} />
         
         {/* Zoom controls positioned top-right */}
         <ZoomControl position="topright" />
@@ -166,20 +212,12 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
         {/* Outbreak markers */}
         {filteredPoints.map((point) => {
           const color = getSeverityColor(point.severity);
-          const radius = getMarkerRadius(point.cases, point.severity);
-          const isCritical = point.severity === 'critical';
 
           return (
-            <CircleMarker
+            <Marker
               key={point.id}
-              center={[point.lat, point.lng]}
-              radius={radius}
-              pathOptions={{
-                color: 'rgba(255,255,255,0.8)',
-                weight: 2,
-                fillColor: color,
-                fillOpacity: 0.8,
-              }}
+              position={[point.lat, point.lng]}
+              icon={createPinIcon(point.severity)}
               eventHandlers={{
                 click: () => {
                   setSelectedPoint(point);
@@ -266,28 +304,37 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
                   </div>
                 </div>
               </Popup>
-            </CircleMarker>
+            </Marker>
           );
         })}
       </MapContainer>
 
-      {/* Map type toggle */}
+      {/* Map type toggle - Apple Glass style */}
       <div 
-        className="absolute top-4 left-4 z-[1000] flex rounded-lg overflow-hidden"
+        className="absolute top-4 left-4 z-[1000] flex rounded-2xl overflow-hidden transition-all duration-300"
         style={{
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          opacity: controlsVisible ? 1 : 0,
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+          transform: controlsVisible ? 'translateY(0)' : 'translateY(-10px)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          backgroundColor: darkMode ? 'rgba(30, 30, 40, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+          border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+          boxShadow: darkMode 
+            ? '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5)',
         }}
       >
         <button
           onClick={() => setMapType('dark')}
-          className="px-3 py-2 text-xs font-medium transition-colors border-0 cursor-pointer"
+          className="px-4 py-2.5 text-xs font-medium transition-all duration-200 border-0 cursor-pointer"
           style={{
             backgroundColor: mapType === 'dark' 
-              ? (darkMode ? '#3a3a4e' : '#1D1D1F')
-              : (darkMode ? '#2a2a3e' : '#ffffff'),
+              ? (darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)')
+              : 'transparent',
             color: mapType === 'dark'
-              ? '#ffffff'
-              : (darkMode ? '#A1A1A6' : '#6E6E73'),
+              ? (darkMode ? '#ffffff' : '#1D1D1F')
+              : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.5)'),
             fontFamily: 'inherit',
           }}
         >
@@ -295,14 +342,14 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
         </button>
         <button
           onClick={() => setMapType('satellite')}
-          className="px-3 py-2 text-xs font-medium transition-colors border-0 cursor-pointer"
+          className="px-4 py-2.5 text-xs font-medium transition-all duration-200 border-0 cursor-pointer"
           style={{
             backgroundColor: mapType === 'satellite' 
-              ? (darkMode ? '#3a3a4e' : '#1D1D1F')
-              : (darkMode ? '#2a2a3e' : '#ffffff'),
+              ? (darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)')
+              : 'transparent',
             color: mapType === 'satellite'
-              ? '#ffffff'
-              : (darkMode ? '#A1A1A6' : '#6E6E73'),
+              ? (darkMode ? '#ffffff' : '#1D1D1F')
+              : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.5)'),
             fontFamily: 'inherit',
           }}
         >
@@ -310,47 +357,76 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
         </button>
       </div>
 
-      {/* Custom CSS for Leaflet in dark mode */}
+      {/* Custom CSS for Leaflet - Apple Glass style */}
       <style>{`
         .leaflet-container {
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
         }
+        .custom-pin-icon {
+          background: none !important;
+          border: none !important;
+        }
         .leaflet-control-zoom {
           border: none !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+          border-radius: 16px !important;
+          overflow: hidden !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          background: ${darkMode ? 'rgba(30, 30, 40, 0.7)' : 'rgba(255, 255, 255, 0.7)'} !important;
+          box-shadow: ${darkMode 
+            ? '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5)'} !important;
+          border: ${darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'} !important;
+          transition: opacity 0.3s ease, transform 0.3s ease !important;
+          opacity: ${controlsVisible ? 1 : 0} !important;
+          pointer-events: ${controlsVisible ? 'auto' : 'none'} !important;
+          transform: ${controlsVisible ? 'translateY(0)' : 'translateY(-10px)'} !important;
         }
         .leaflet-control-zoom a {
-          background: ${darkMode ? '#2a2a3e' : '#ffffff'} !important;
-          color: ${darkMode ? '#F5F5F7' : '#1D1D1F'} !important;
+          background: transparent !important;
+          color: ${darkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)'} !important;
           border: none !important;
-          width: 32px !important;
-          height: 32px !important;
-          line-height: 32px !important;
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
           font-size: 18px !important;
+          font-weight: 300 !important;
+          transition: background 0.2s ease !important;
         }
         .leaflet-control-zoom a:hover {
-          background: ${darkMode ? '#3a3a4e' : '#f0f0f0'} !important;
+          background: ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'} !important;
         }
         .leaflet-control-zoom-in {
-          border-radius: 6px 6px 0 0 !important;
+          border-radius: 0 !important;
+          border-bottom: ${darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'} !important;
         }
         .leaflet-control-zoom-out {
-          border-radius: 0 0 6px 6px !important;
+          border-radius: 0 !important;
         }
         .leaflet-popup-content-wrapper {
-          border-radius: 12px !important;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+          border-radius: 16px !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          background: rgba(255, 255, 255, 0.95) !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5) !important;
         }
         .leaflet-popup-tip {
+          background: rgba(255, 255, 255, 0.95) !important;
           box-shadow: none !important;
         }
         .leaflet-control-attribution {
-          background: ${darkMode ? 'rgba(26,26,46,0.8)' : 'rgba(255,255,255,0.8)'} !important;
-          color: ${darkMode ? '#A1A1A6' : '#6E6E73'} !important;
+          backdrop-filter: blur(10px) !important;
+          -webkit-backdrop-filter: blur(10px) !important;
+          background: ${darkMode ? 'rgba(30, 30, 40, 0.6)' : 'rgba(255, 255, 255, 0.6)'} !important;
+          color: ${darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)'} !important;
           font-size: 10px !important;
+          border-radius: 8px 0 0 0 !important;
+          padding: 2px 8px !important;
+          transition: opacity 0.3s ease !important;
+          opacity: ${controlsVisible ? 1 : 0} !important;
         }
         .leaflet-control-attribution a {
-          color: ${darkMode ? '#A1A1A6' : '#6E6E73'} !important;
+          color: ${darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)'} !important;
         }
       `}</style>
     </div>
