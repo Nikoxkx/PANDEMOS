@@ -1,13 +1,6 @@
 import { useState, useRef, memo } from 'react';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  ZoomableGroup,
-} from 'react-simple-maps';
 
 interface MapPoint {
   id: string;
@@ -25,13 +18,12 @@ interface MapPoint {
   date: string;
   reportDetails: string;
   sourceUrl?: string;
-  travelPaths?: { to: string; toLat: number; toLng: number }[];
 }
 
 // Comprehensive outbreak data with real source URLs
 const outbreakData: MapPoint[] = [
   // Mpox hotspots
-  { id: 'm1', name: 'Kinshasa', country: 'Democratic Republic of Congo', lat: -4.32, lng: 15.31, cases: 3245, deaths: 89, severity: 'critical', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - Disease Outbreak News', tier: 1, date: '2024-01-15', reportDetails: 'Clade Ib outbreak with sustained human-to-human transmission. Index case traced to mining community. Enhanced surveillance and contact tracing underway.', sourceUrl: 'https://www.who.int/emergencies/disease-outbreak-news', travelPaths: [{ to: 'Bujumbura', toLat: -3.38, toLng: 29.36 }] },
+  { id: 'm1', name: 'Kinshasa', country: 'Democratic Republic of Congo', lat: -4.32, lng: 15.31, cases: 3245, deaths: 89, severity: 'critical', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - Disease Outbreak News', tier: 1, date: '2024-01-15', reportDetails: 'Clade Ib outbreak with sustained human-to-human transmission. Index case traced to mining community. Enhanced surveillance and contact tracing underway.', sourceUrl: 'https://www.who.int/emergencies/disease-outbreak-news' },
   { id: 'm2', name: 'Goma', country: 'Democratic Republic of Congo', lat: -1.67, lng: 29.23, cases: 1876, deaths: 52, severity: 'critical', disease: 'Mpox', source: 'Africa CDC', sourceFull: 'Africa Centres for Disease Control and Prevention', tier: 2, date: '2024-01-14', reportDetails: 'Escalating cases in displacement camps. MSF establishing treatment facilities. Vaccine supplies critically low.', sourceUrl: 'https://africacdc.org/disease/monkeypox/' },
   { id: 'm3', name: 'Bujumbura', country: 'Burundi', lat: -3.38, lng: 29.36, cases: 456, deaths: 12, severity: 'elevated', disease: 'Mpox', source: 'WHO', sourceFull: 'World Health Organization - AFRO', tier: 1, date: '2024-01-14', reportDetails: 'Cross-border transmission from DRC confirmed. First cases detected in urban areas. National emergency response activated.', sourceUrl: 'https://www.afro.who.int/' },
   { id: 'm4', name: 'Kigali', country: 'Rwanda', lat: -1.94, lng: 30.06, cases: 89, deaths: 2, severity: 'watch', disease: 'Mpox', source: 'Rwanda MOH', sourceFull: 'Rwanda Ministry of Health', tier: 2, date: '2024-01-13', reportDetails: 'Border screening intensified. Cases linked to travel from DRC. Contact tracing 95% complete.', sourceUrl: 'https://www.moh.gov.rw/' },
@@ -83,9 +75,23 @@ const outbreakData: MapPoint[] = [
   // Measles
   { id: 'ms1', name: 'Lahore', country: 'Pakistan', lat: 31.55, lng: 74.34, cases: 4567, deaths: 89, severity: 'elevated', disease: 'Measles', source: 'Pakistan NIH', sourceFull: 'Pakistan National Institute of Health', tier: 2, date: '2024-01-14', reportDetails: 'Outbreak linked to vaccine coverage gaps. Emergency immunization campaign underway.', sourceUrl: 'https://www.nih.org.pk/' },
   { id: 'ms2', name: 'Kabul', country: 'Afghanistan', lat: 34.53, lng: 69.17, cases: 6789, deaths: 123, severity: 'critical', disease: 'Measles', source: 'WHO', sourceFull: 'World Health Organization - EMRO', tier: 1, date: '2024-01-15', reportDetails: 'Widespread outbreak due to disrupted health services. UNICEF supporting vaccination efforts.', sourceUrl: 'https://www.emro.who.int/' },
+
+  // Additional diseases
+  { id: 'tb1', name: 'Mumbai', country: 'India', lat: 19.08, lng: 72.88, cases: 8900, deaths: 456, severity: 'elevated', disease: 'Tuberculosis', source: 'India MOH', sourceFull: 'Indian Ministry of Health', tier: 2, date: '2024-01-14', reportDetails: 'MDR-TB cases increasing. DOTS program expansion ongoing.', sourceUrl: 'https://www.mohfw.gov.in/' },
+  { id: 'mal1', name: 'Ouagadougou', country: 'Burkina Faso', lat: 12.37, lng: -1.52, cases: 12340, deaths: 234, severity: 'elevated', disease: 'Malaria', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-13', reportDetails: 'Seasonal malaria transmission. Bed net distribution campaign.', sourceUrl: 'https://www.who.int/teams/global-malaria-programme' },
+  { id: 'lf1', name: 'Ondo', country: 'Nigeria', lat: 7.09, lng: 4.84, cases: 456, deaths: 89, severity: 'elevated', disease: 'Lassa Fever', source: 'NCDC', sourceFull: 'Nigeria Centre for Disease Control', tier: 2, date: '2024-01-12', reportDetails: 'Seasonal Lassa fever activity. Contact tracing ongoing.', sourceUrl: 'https://ncdc.gov.ng/' },
+  { id: 'pol1', name: 'Karachi', country: 'Pakistan', lat: 24.86, lng: 67.01, cases: 12, deaths: 0, severity: 'watch', disease: 'Polio', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-11', reportDetails: 'Wild poliovirus type 1 detected. Emergency vaccination response.', sourceUrl: 'https://polioeradication.org/' },
 ];
 
-const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+// Convert lat/lng to x/y percentage for the map
+function latLngToPercent(lat: number, lng: number): { x: number; y: number } {
+  // Mercator projection approximation
+  const x = ((lng + 180) / 360) * 100;
+  const latRad = (lat * Math.PI) / 180;
+  const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+  const y = 50 - (mercN * 100) / (2 * Math.PI);
+  return { x: Math.max(0, Math.min(100, x)), y: Math.max(5, Math.min(95, y)) };
+}
 
 interface WorldMapProps {
   onPointClick: (point: MapPoint) => void;
@@ -116,165 +122,150 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
     setHoveredPoint(point);
   };
 
+  const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
+  const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
+
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden">
-      {/* Satellite-style background gradient */}
+      {/* High quality satellite map background */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: 'url(https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Earthlights_dmsp.jpg/2560px-Earthlights_dmsp.jpg)',
+          filter: darkMode ? 'brightness(0.8) contrast(1.1)' : 'brightness(0.9) contrast(1.05) saturate(1.1)',
+        }}
+      />
+      
+      {/* Gradient overlay for better marker visibility */}
       <div 
         className="absolute inset-0"
         style={{
           background: darkMode 
-            ? 'radial-gradient(ellipse at center, #0c1929 0%, #030812 100%)'
-            : 'radial-gradient(ellipse at center, #1a3a5c 0%, #0a1628 100%)',
+            ? 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
+            : 'linear-gradient(to bottom, rgba(0,20,50,0.2) 0%, rgba(0,10,30,0.1) 50%, rgba(0,20,50,0.2) 100%)',
         }}
       />
-      
-      <ComposableMap
-        projection="geoMercator"
-        projectionConfig={{
-          scale: 140,
-          center: [0, 20],
-        }}
-        style={{
-          width: '100%',
-          height: '100%',
-        }}
-      >
-        <ZoomableGroup center={[0, 20]} zoom={1}>
-          <Geographies geography={geoUrl}>
-            {({ geographies }) =>
-              geographies.map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={darkMode ? 'rgba(30, 58, 95, 0.6)' : 'rgba(40, 75, 120, 0.5)'}
-                  stroke={darkMode ? 'rgba(60, 100, 150, 0.4)' : 'rgba(80, 130, 180, 0.3)'}
-                  strokeWidth={0.5}
-                  style={{
-                    default: { outline: 'none' },
-                    hover: { 
-                      fill: darkMode ? 'rgba(40, 75, 120, 0.7)' : 'rgba(50, 90, 140, 0.6)',
-                      outline: 'none' 
-                    },
-                    pressed: { outline: 'none' },
-                  }}
-                />
-              ))
-            }
-          </Geographies>
 
-          {/* Data point markers */}
-          {filteredPoints.map((point) => {
-            const color = getSeverityColor(point.severity);
-            const size = Math.max(4, Math.min(12, Math.log10(point.cases + 1) * 3 + 2));
-            const isCritical = point.severity === 'critical';
-            const isHovered = hoveredPoint?.id === point.id;
+      {/* Data point markers */}
+      {filteredPoints.map((point) => {
+        const color = getSeverityColor(point.severity);
+        const size = Math.max(8, Math.min(20, Math.log10(point.cases + 1) * 4 + 4));
+        const isCritical = point.severity === 'critical';
+        const isHovered = hoveredPoint?.id === point.id;
+        const pos = latLngToPercent(point.lat, point.lng);
 
-            return (
-              <Marker
-                key={point.id}
-                coordinates={[point.lng, point.lat]}
-                onClick={() => onPointClick(point)}
-                onMouseEnter={(e) => handleMouseMove(e as unknown as React.MouseEvent, point)}
-                onMouseMove={(e) => handleMouseMove(e as unknown as React.MouseEvent, point)}
-                onMouseLeave={() => setHoveredPoint(null)}
-                style={{ cursor: 'pointer' }}
-              >
-                {/* Pulse animation for critical */}
-                {isCritical && (
-                  <>
-                    <circle
-                      r={size}
-                      fill="none"
-                      stroke={color}
-                      strokeWidth={1}
-                      opacity={0}
-                    >
-                      <animate attributeName="r" values={`${size};${size * 2.5}`} dur="2s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite" />
-                    </circle>
-                    <circle
-                      r={size}
-                      fill="none"
-                      stroke={color}
-                      strokeWidth={1}
-                      opacity={0}
-                    >
-                      <animate attributeName="r" values={`${size};${size * 2.5}`} dur="2s" repeatCount="indefinite" begin="1s" />
-                      <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite" begin="1s" />
-                    </circle>
-                  </>
-                )}
-                
-                {/* Main marker */}
-                <circle
-                  r={isHovered ? size * 1.4 : size}
-                  fill={color}
-                  opacity={0.9}
-                  style={{
-                    filter: isHovered ? 'drop-shadow(0 0 8px rgba(255,255,255,0.5))' : 'drop-shadow(0 0 4px rgba(0,0,0,0.5))',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {!isCritical && (
-                    <animate attributeName="opacity" values="0.7;0.95;0.7" dur="2s" repeatCount="indefinite" />
-                  )}
-                </circle>
-                
-                {/* Inner glow */}
-                <circle
-                  r={size * 0.4}
-                  fill="white"
-                  opacity={0.4}
-                  cx={-size * 0.15}
-                  cy={-size * 0.15}
-                />
-              </Marker>
-            );
-          })}
-        </ZoomableGroup>
-      </ComposableMap>
+        return (
+          <div
+            key={point.id}
+            className="absolute cursor-pointer transition-transform duration-200"
+            style={{
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              transform: `translate(-50%, -50%) scale(${isHovered ? 1.3 : 1})`,
+              zIndex: isHovered ? 100 : isCritical ? 50 : 10,
+            }}
+            onClick={() => onPointClick(point)}
+            onMouseEnter={(e) => handleMouseMove(e, point)}
+            onMouseMove={(e) => handleMouseMove(e, point)}
+            onMouseLeave={() => setHoveredPoint(null)}
+          >
+            {/* Pulse animation for critical */}
+            {isCritical && (
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: size * 2,
+                  height: size * 2,
+                  backgroundColor: color,
+                  opacity: 0.4,
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            )}
+            
+            {/* Glow effect */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                width: size * 1.8,
+                height: size * 1.8,
+                backgroundColor: color,
+                opacity: 0.3,
+                filter: 'blur(4px)',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
+            />
+            
+            {/* Main marker */}
+            <div
+              className="relative rounded-full border-2 shadow-lg"
+              style={{
+                width: size,
+                height: size,
+                backgroundColor: color,
+                borderColor: 'rgba(255,255,255,0.8)',
+                boxShadow: `0 0 ${size}px ${color}`,
+              }}
+            />
+          </div>
+        );
+      })}
 
       {/* Tooltip */}
       {hoveredPoint && (
         <div
-          className="absolute z-50 pointer-events-none px-4 py-3 rounded-xl max-w-[300px]"
+          className="absolute z-[200] pointer-events-none"
           style={{
-            left: Math.min(tooltipPos.x + 15, (containerRef.current?.clientWidth || 300) - 310),
-            top: Math.max(tooltipPos.y - 100, 10),
-            backgroundColor: darkMode ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            border: darkMode ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+            left: tooltipPos.x,
+            top: tooltipPos.y - 10,
+            transform: 'translate(-50%, -100%)',
           }}
         >
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span
-                className="inline-block w-2 h-2 rounded-full"
+          <div
+            className="rounded-xl px-4 py-3 shadow-2xl min-w-[280px] max-w-[360px]"
+            style={{
+              backgroundColor: darkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(20px)',
+              border: darkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: getSeverityColor(hoveredPoint.severity) }}
               />
-              <p className="text-[15px] font-semibold" style={{ color: darkMode ? '#F5F5F7' : '#1D1D1F' }}>
-                {hoveredPoint.disease}
-              </p>
-            </div>
-            <p className="text-[13px]" style={{ color: darkMode ? '#A1A1A6' : '#6E6E73' }}>
-              {hoveredPoint.name}, {hoveredPoint.country}
-            </p>
-            <div className="flex items-center justify-center gap-4 mt-2">
-              <span className="text-[13px]" style={{ fontFamily: 'monospace', color: darkMode ? '#F5F5F7' : '#1D1D1F' }}>
-                {hoveredPoint.cases.toLocaleString()} cases
-              </span>
-              <span className="text-[13px]" style={{ fontFamily: 'monospace', color: '#FF3B30' }}>
-                {hoveredPoint.deaths.toLocaleString()} deaths
+              <span className="text-[15px] font-semibold" style={{ color: textPrimary }}>
+                {hoveredPoint.name}, {hoveredPoint.country}
               </span>
             </div>
-            <p className="text-[11px] mt-2" style={{ color: darkMode ? '#6E6E73' : '#86868B' }}>
-              {hoveredPoint.source} | Tier {hoveredPoint.tier} | {hoveredPoint.date}
-            </p>
-            <p className="text-[11px] mt-1 font-medium" style={{ color: darkMode ? '#A1A1A6' : '#6E6E73' }}>
-              Click for full details
-            </p>
+            <div className="text-[13px] mb-2" style={{ color: textSecondary }}>
+              {hoveredPoint.disease} - {hoveredPoint.severity.charAt(0).toUpperCase() + hoveredPoint.severity.slice(1)}
+            </div>
+            <div className="flex gap-4 text-[12px]">
+              <div>
+                <span style={{ color: textSecondary }}>Cases: </span>
+                <span className="font-medium" style={{ color: textPrimary }}>{hoveredPoint.cases.toLocaleString()}</span>
+              </div>
+              <div>
+                <span style={{ color: textSecondary }}>Deaths: </span>
+                <span className="font-medium" style={{ color: '#FF3B30' }}>{hoveredPoint.deaths.toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="text-[11px] mt-2 leading-relaxed" style={{ color: textSecondary }}>
+              {hoveredPoint.reportDetails.slice(0, 120)}...
+            </div>
+            <div className="text-[10px] mt-2 flex items-center gap-1" style={{ color: textSecondary }}>
+              <span>Source: {hoveredPoint.source}</span>
+              <span>|</span>
+              <span>{hoveredPoint.date}</span>
+            </div>
+            <div className="text-[10px] mt-1 text-blue-400">
+              Click for full details and source link
+            </div>
           </div>
         </div>
       )}
