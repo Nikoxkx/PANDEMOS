@@ -11,7 +11,7 @@ import DiseaseDetail from './pages/DiseaseDetail';
 import CommandCenter from './pages/CommandCenter';
 import Sources from './pages/Sources';
 import Learn from './pages/Learn';
-import AnatomyExplorer from './pages/AnatomyExplorer';
+
 
 function App() {
   const { darkMode } = useStore();
@@ -54,7 +54,7 @@ function App() {
     if (currentPath === '/command-center') return <CommandCenter onNavigate={navigate} />;
     if (currentPath === '/sources') return <Sources />;
     if (currentPath === '/learn') return <Learn onNavigate={navigate} />;
-    if (currentPath === '/anatomy') return <AnatomyExplorer onNavigate={navigate} />;
+
     return <Landing onNavigate={navigate} />;
   };
 
