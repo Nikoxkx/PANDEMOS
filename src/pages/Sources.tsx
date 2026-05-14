@@ -53,13 +53,57 @@ const sourceLinks = [
 ];
 
 const scoringFactors = [
-  { icon: '🏛️', name: 'Institutional Authority', weight: '20 points', description: 'Is the source backed by a government or international body with a legal mandate for surveillance?' },
-  { icon: '🔬', name: 'Scientific Rigor', weight: '20 points', description: 'Does the source use peer-reviewed methodology and transparent data collection practices?' },
-  { icon: '📊', name: 'Historical Accuracy', weight: '20 points', description: 'What is the source\'s track record for accuracy? Have past reports been verified?' },
-  { icon: '⏱️', name: 'Timeliness', weight: '15 points', description: 'How quickly does the source report new data? Are there delays between events and publication?' },
-  { icon: '🔗', name: 'Cross-referencing', weight: '15 points', description: 'Can the data be independently verified through other credible sources?' },
-  { icon: '📋', name: 'Transparency', weight: '10 points', description: 'Does the source publish its methodology, limitations, and correction history?' },
+  { icon: 'authority', name: 'Institutional Authority', weight: '20 points', description: 'Is the source backed by a government or international body with a legal mandate for surveillance?' },
+  { icon: 'science', name: 'Scientific Rigor', weight: '20 points', description: 'Does the source use peer-reviewed methodology and transparent data collection practices?' },
+  { icon: 'accuracy', name: 'Historical Accuracy', weight: '20 points', description: 'What is the source\'s track record for accuracy? Have past reports been verified?' },
+  { icon: 'time', name: 'Timeliness', weight: '15 points', description: 'How quickly does the source report new data? Are there delays between events and publication?' },
+  { icon: 'link', name: 'Cross-referencing', weight: '15 points', description: 'Can the data be independently verified through other credible sources?' },
+  { icon: 'transparency', name: 'Transparency', weight: '10 points', description: 'Does the source publish its methodology, limitations, and correction history?' },
 ];
+
+const ScoringIcon = ({ type, color }: { type: string; color: string }) => {
+  const icons: Record<string, JSX.Element> = {
+    authority: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/>
+      </svg>
+    ),
+    science: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <path d="M9 3v6l-4 8h14l-4-8V3M9 3h6M7 17l2.5 4h5L17 17"/>
+        <circle cx="10" cy="12" r="1" fill={color}/>
+        <circle cx="14" cy="14" r="1" fill={color}/>
+      </svg>
+    ),
+    accuracy: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="2"/>
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+      </svg>
+    ),
+    time: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 6v6l4 2"/>
+      </svg>
+    ),
+    link: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    ),
+    transparency: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    ),
+  };
+  return icons[type] || null;
+};
 
 export default function Sources({ onNavigate: _onNavigate }: SourcesProps) {
   const { darkMode } = useStore();
@@ -76,9 +120,39 @@ export default function Sources({ onNavigate: _onNavigate }: SourcesProps) {
 
   return (
     <div style={{ backgroundColor: darkMode ? '#000' : '#FFF' }}>
-      {/* Hero */}
-      <div className="pt-[52px]" style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
-        <div className="max-w-[1200px] mx-auto px-6 md:px-10 py-16 md:py-24 text-center">
+      {/* Hero with stylistic background elements */}
+      <div className="pt-[52px] relative overflow-hidden" style={{ backgroundColor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
+        {/* Decorative symbols */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <svg className="absolute top-20 left-10 opacity-[0.03]" width="120" height="120" viewBox="0 0 100 100" fill={textPrimary}>
+            <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="2" fill="none"/>
+            <circle cx="50" cy="20" r="12"/>
+            <circle cx="24" cy="65" r="12"/>
+            <circle cx="76" cy="65" r="12"/>
+            <circle cx="50" cy="50" r="8"/>
+          </svg>
+          <svg className="absolute top-32 right-20 opacity-[0.03]" width="80" height="80" viewBox="0 0 24 24" fill={textPrimary}>
+            <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 18.5L4 16V8.5l8 4v8zm0-10L4.5 7 12 3.5 19.5 7 12 10.5z"/>
+          </svg>
+          <svg className="absolute bottom-20 left-1/4 opacity-[0.02]" width="150" height="150" viewBox="0 0 100 100" fill={textPrimary}>
+            <path d="M50 5L5 30v40l45 25 45-25V30L50 5zm0 15l30 17v30L50 85 20 67V37l30-17z"/>
+          </svg>
+          <svg className="absolute top-1/2 right-10 opacity-[0.02]" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke={textPrimary} strokeWidth="0.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        
+        <div className="max-w-[1200px] mx-auto px-6 md:px-10 py-16 md:py-24 text-center relative">
+          {/* Biohazard icon */}
+          <div className="mb-6 flex justify-center">
+            <svg width="48" height="48" viewBox="0 0 100 100" fill="none" stroke={darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'} strokeWidth="2">
+              <circle cx="50" cy="50" r="8"/>
+              <path d="M50 15 A35 35 0 0 1 80 65 L50 50 Z"/>
+              <path d="M80 65 A35 35 0 0 1 20 65 L50 50 Z"/>
+              <path d="M20 65 A35 35 0 0 1 50 15 L50 50 Z"/>
+            </svg>
+          </div>
           <p className="text-[12px] uppercase tracking-[0.1em] font-medium mb-4" style={{ color: textTertiary }}>
             OUR FRAMEWORK
           </p>
@@ -174,7 +248,9 @@ export default function Sources({ onNavigate: _onNavigate }: SourcesProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1100px] mx-auto">
           {scoringFactors.map((f) => (
             <Card key={f.name}>
-              <div className="text-[36px] mb-4">{f.icon}</div>
+              <div className="mb-4 flex justify-center">
+                <ScoringIcon type={f.icon} color={darkMode ? '#A1A1A6' : '#6E6E73'} />
+              </div>
               <h3 className="text-[17px] font-semibold" style={{ color: textPrimary }}>{f.name}</h3>
               <p className="text-[13px] mt-1" style={{ fontFamily: 'monospace', color: textTertiary }}>{f.weight}</p>
               <p className="text-[15px] mt-3 leading-relaxed" style={{ color: textSecondary }}>{f.description}</p>

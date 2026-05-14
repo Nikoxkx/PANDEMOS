@@ -323,6 +323,29 @@ export default function Landing({ onNavigate }: LandingProps) {
         </div>
       </Section>
 
+      {/* Footer Description */}
+      <footer 
+        className="py-16 px-6 text-center"
+        style={{ 
+          backgroundColor: darkMode ? 'rgba(0,0,0,0.98)' : 'rgba(250,250,252,1)',
+          borderTop: `1px solid ${darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'}`,
+        }}
+      >
+        <div className="max-w-[700px] mx-auto">
+          <p 
+            className="text-[13px] leading-[1.7]"
+            style={{ color: textTertiary }}
+          >
+            PANDEMOS is a global disease surveillance platform designed to aggregate, verify, and visualize outbreak data from over 50 international health authorities. Our mission is to provide researchers, policymakers, and the public with accurate, real-time intelligence on emerging infectious disease threats. Every data point is sourced, scored for credibility, and transparently documented. This platform does not provide medical advice. For clinical guidance, consult qualified healthcare professionals.
+          </p>
+          <p 
+            className="text-[11px] mt-6 uppercase tracking-[0.1em]"
+            style={{ color: darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}
+          >
+            Data integrity. Transparency. Global vigilance.
+          </p>
+        </div>
+      </footer>
 
     </div>
   );

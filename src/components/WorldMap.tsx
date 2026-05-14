@@ -1,9 +1,9 @@
-import { useState, useRef, memo, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { useStore } from '../store/useStore';
 import { getSeverityColor } from '../data/diseases';
-
-// Real NASA Blue Marble satellite image (downloaded locally)
-const SATELLITE_MAP_URL = '/earth-satellite.jpg';
+import 'leaflet/dist/leaflet.css';
 
 interface MapPoint {
   id: string;
@@ -86,27 +86,101 @@ const outbreakData: MapPoint[] = [
   { id: 'pol1', name: 'Karachi', country: 'Pakistan', lat: 24.86, lng: 67.01, cases: 12, deaths: 0, severity: 'watch', disease: 'Polio', source: 'WHO', sourceFull: 'World Health Organization', tier: 1, date: '2024-01-11', reportDetails: 'Wild poliovirus type 1 detected. Emergency vaccination response.', sourceUrl: 'https://polioeradication.org/' },
 ];
 
-// Convert lat/lng to x/y percentage for the map
-function latLngToPercent(lat: number, lng: number): { x: number; y: number } {
-  // Mercator projection approximation
-  const x = ((lng + 180) / 360) * 100;
-  const latRad = (lat * Math.PI) / 180;
-  const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-  const y = 50 - (mercN * 100) / (2 * Math.PI);
-  return { x: Math.max(0, Math.min(100, x)), y: Math.max(5, Math.min(95, y)) };
-}
-
 interface WorldMapProps {
   onPointClick: (point: MapPoint) => void;
   selectedDisease?: string;
   selectedSeverity?: string;
 }
 
+// Component to handle map view changes and track zoom level
+function MapController({ darkMode, onZoomChange }: { darkMode: boolean; onZoomChange: (zoom: number) => void }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Force map to invalidate size after render
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    
+    // Track zoom changes
+    const handleZoom = () => {
+      onZoomChange(map.getZoom());
+    };
+    
+    map.on('zoomend', handleZoom);
+    return () => {
+      map.off('zoomend', handleZoom);
+    };
+  }, [map, onZoomChange]);
+
+  return null;
+}
+
+// Create glass-style pin icon
+const createPinIcon = (severity: string) => {
+  const color = getSeverityColor(severity);
+  const svgIcon = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+      <defs>
+        <filter id="glow-${severity}" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feFlood flood-color="${color}" flood-opacity="0.6"/>
+          <feComposite in2="blur" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <linearGradient id="glass-${severity}" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:rgba(255,255,255,0.4)"/>
+          <stop offset="50%" style="stop-color:rgba(255,255,255,0.1)"/>
+          <stop offset="100%" style="stop-color:rgba(255,255,255,0.2)"/>
+        </linearGradient>
+      </defs>
+      <path d="M14 0C6.3 0 0 6.3 0 14c0 8.4 14 22 14 22s14-13.6 14-22C28 6.3 21.7 0 14 0z" 
+            fill="${color}" 
+            fill-opacity="0.7"
+            stroke="rgba(255,255,255,0.6)" 
+            stroke-width="1"
+            filter="url(#glow-${severity})"/>
+      <path d="M14 2C7.4 2 2 7.4 2 14c0 1.5 0.3 3 0.8 4.3C5 12 9 8 14 8s9 4 11.2 10.3c0.5-1.3 0.8-2.8 0.8-4.3C26 7.4 20.6 2 14 2z" 
+            fill="url(#glass-${severity})" 
+            opacity="0.5"/>
+      <circle cx="14" cy="13" r="5" fill="rgba(255,255,255,0.85)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+    </svg>
+  `;
+  
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-pin-icon',
+    iconSize: [28, 36],
+    iconAnchor: [14, 36],
+    popupAnchor: [0, -36],
+  });
+};
+
 const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all', selectedSeverity = 'all' }: WorldMapProps) {
   const { darkMode } = useStore();
-  const [hoveredPoint, setHoveredPoint] = useState<MapPoint | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
+  const [mapType, setMapType] = useState<'dark' | 'satellite'>('dark');
+  const [currentZoom, setCurrentZoom] = useState(2);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [lastInteraction, setLastInteraction] = useState(Date.now());
+  
+  // Hide controls after 5 seconds of inactivity
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (Date.now() - lastInteraction > 5000) {
+        setControlsVisible(false);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastInteraction]);
+
+  const handleInteraction = () => {
+    setLastInteraction(Date.now());
+    setControlsVisible(true);
+  };
 
   const filteredPoints = outbreakData.filter(p => {
     if (selectedDisease !== 'all' && p.disease !== selectedDisease) return false;
@@ -114,168 +188,276 @@ const WorldMap = memo(function WorldMap({ onPointClick, selectedDisease = 'all',
     return true;
   });
 
-  const handleMouseMove = (e: React.MouseEvent, point: MapPoint) => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setTooltipPos({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    }
-    setHoveredPoint(point);
-  };
-
   const textPrimary = darkMode ? '#F5F5F7' : '#1D1D1F';
   const textSecondary = darkMode ? '#A1A1A6' : '#6E6E73';
 
+  // Tile URLs for different map types
+  const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  const satelliteTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  
+  const tileUrl = mapType === 'satellite' ? satelliteTileUrl : darkTileUrl;
+  const tileAttribution = mapType === 'satellite' 
+    ? '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+
+
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={{ backgroundColor: darkMode ? '#0a1628' : '#1a3a5c' }}>
-      {/* Real NASA satellite map - Blue Marble (public domain) */}
-      <img 
-        src={SATELLITE_MAP_URL}
-        alt="NASA Blue Marble satellite view of Earth"
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{
-          filter: darkMode ? 'brightness(0.7) contrast(1.2) saturate(0.9)' : 'brightness(0.95) contrast(1.1) saturate(1.15)',
+    <div 
+      className="relative w-full h-full"
+      onMouseMove={handleInteraction}
+      onTouchStart={handleInteraction}
+      onClick={handleInteraction}
+    >
+      <MapContainer
+        center={[20, 0]}
+        zoom={2}
+        minZoom={2}
+        maxZoom={12}
+        zoomControl={false}
+        scrollWheelZoom={true}
+        doubleClickZoom={true}
+        dragging={true}
+        style={{ 
+          width: '100%', 
+          height: '100%',
+          background: darkMode ? '#1a1a2e' : '#e8e8e8',
         }}
-      />
-      
-      {/* Gradient overlay for better marker visibility */}
+      >
+        <MapController darkMode={darkMode} onZoomChange={setCurrentZoom} />
+        
+        {/* Zoom controls positioned top-right */}
+        <ZoomControl position="topright" />
+        
+        {/* Map tiles - dark CartoDB or satellite */}
+        <TileLayer
+          key={mapType}
+          attribution={tileAttribution}
+          url={tileUrl}
+        />
+
+        {/* Outbreak markers */}
+        {filteredPoints.map((point) => {
+          const color = getSeverityColor(point.severity);
+
+          return (
+            <Marker
+              key={point.id}
+              position={[point.lat, point.lng]}
+              icon={createPinIcon(point.severity)}
+              eventHandlers={{
+                click: () => {
+                  setSelectedPoint(point);
+                  onPointClick(point);
+                },
+              }}
+            >
+              <Popup>
+                <div style={{ 
+                  minWidth: '220px',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    marginBottom: '8px',
+                  }}>
+                    <div style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: color,
+                      boxShadow: `0 0 8px ${color}`,
+                    }} />
+                    <span style={{ 
+                      fontWeight: 600, 
+                      fontSize: '14px',
+                      color: '#1D1D1F',
+                    }}>
+                      {point.name}, {point.country}
+                    </span>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '16px',
+                    marginBottom: '8px',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6E6E73', textTransform: 'uppercase' }}>Cases</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: '#1D1D1F' }}>{point.cases.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6E6E73', textTransform: 'uppercase' }}>Deaths</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: '#1D1D1F' }}>{point.deaths.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    marginBottom: '6px',
+                  }}>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      backgroundColor: color,
+                      color: '#fff',
+                      textTransform: 'uppercase',
+                    }}>
+                      {point.disease}
+                    </span>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      backgroundColor: 'rgba(0,0,0,0.05)',
+                      color: '#6E6E73',
+                      textTransform: 'uppercase',
+                    }}>
+                      {point.severity}
+                    </span>
+                  </div>
+                  
+                  <div style={{ 
+                    fontSize: '11px', 
+                    color: '#6E6E73',
+                  }}>
+                    Source: {point.source} &middot; {point.date}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+
+      {/* Map type toggle - Apple Glass style */}
       <div 
-        className="absolute inset-0"
+        className="absolute top-4 left-4 z-[1000] flex rounded-2xl overflow-hidden transition-all duration-300"
         style={{
-          background: darkMode 
-            ? 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
-            : 'linear-gradient(to bottom, rgba(0,20,50,0.2) 0%, rgba(0,10,30,0.1) 50%, rgba(0,20,50,0.2) 100%)',
+          opacity: controlsVisible ? 1 : 0,
+          pointerEvents: controlsVisible ? 'auto' : 'none',
+          transform: controlsVisible ? 'translateY(0)' : 'translateY(-10px)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          backgroundColor: darkMode ? 'rgba(30, 30, 40, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+          border: darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)',
+          boxShadow: darkMode 
+            ? '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5)',
         }}
-      />
-
-      {/* Data point markers */}
-      {filteredPoints.map((point) => {
-        const color = getSeverityColor(point.severity);
-        const size = Math.max(8, Math.min(20, Math.log10(point.cases + 1) * 4 + 4));
-        const isCritical = point.severity === 'critical';
-        const isHovered = hoveredPoint?.id === point.id;
-        const pos = latLngToPercent(point.lat, point.lng);
-
-        return (
-          <div
-            key={point.id}
-            className="absolute cursor-pointer transition-transform duration-200"
-            style={{
-              left: `${pos.x}%`,
-              top: `${pos.y}%`,
-              transform: `translate(-50%, -50%) scale(${isHovered ? 1.3 : 1})`,
-              zIndex: isHovered ? 100 : isCritical ? 50 : 10,
-            }}
-            onClick={() => onPointClick(point)}
-            onMouseEnter={(e) => handleMouseMove(e, point)}
-            onMouseMove={(e) => handleMouseMove(e, point)}
-            onMouseLeave={() => setHoveredPoint(null)}
-          >
-            {/* Pulse animation for critical */}
-            {isCritical && (
-              <div
-                className="absolute rounded-full animate-ping"
-                style={{
-                  width: size * 2,
-                  height: size * 2,
-                  backgroundColor: color,
-                  opacity: 0.4,
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
-              />
-            )}
-            
-            {/* Glow effect */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                width: size * 1.8,
-                height: size * 1.8,
-                backgroundColor: color,
-                opacity: 0.3,
-                filter: 'blur(4px)',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
-              }}
-            />
-            
-            {/* Main marker */}
-            <div
-              className="relative rounded-full border-2 shadow-lg"
-              style={{
-                width: size,
-                height: size,
-                backgroundColor: color,
-                borderColor: 'rgba(255,255,255,0.8)',
-                boxShadow: `0 0 ${size}px ${color}`,
-              }}
-            />
-          </div>
-        );
-      })}
-
-      {/* Tooltip */}
-      {hoveredPoint && (
-        <div
-          className="absolute z-[200] pointer-events-none"
+      >
+        <button
+          onClick={() => setMapType('dark')}
+          className="px-4 py-2.5 text-xs font-medium transition-all duration-200 border-0 cursor-pointer"
           style={{
-            left: tooltipPos.x,
-            top: tooltipPos.y - 10,
-            transform: 'translate(-50%, -100%)',
+            backgroundColor: mapType === 'dark' 
+              ? (darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)')
+              : 'transparent',
+            color: mapType === 'dark'
+              ? (darkMode ? '#ffffff' : '#1D1D1F')
+              : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.5)'),
+            fontFamily: 'inherit',
           }}
         >
-          <div
-            className="rounded-xl px-4 py-3 shadow-2xl min-w-[280px] max-w-[360px]"
-            style={{
-              backgroundColor: darkMode ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(20px)',
-              border: darkMode ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.1)',
-            }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: getSeverityColor(hoveredPoint.severity) }}
-              />
-              <span className="text-[15px] font-semibold" style={{ color: textPrimary }}>
-                {hoveredPoint.name}, {hoveredPoint.country}
-              </span>
-            </div>
-            <div className="text-[13px] mb-2" style={{ color: textSecondary }}>
-              {hoveredPoint.disease} - {hoveredPoint.severity.charAt(0).toUpperCase() + hoveredPoint.severity.slice(1)}
-            </div>
-            <div className="flex gap-4 text-[12px]">
-              <div>
-                <span style={{ color: textSecondary }}>Cases: </span>
-                <span className="font-medium" style={{ color: textPrimary }}>{hoveredPoint.cases.toLocaleString()}</span>
-              </div>
-              <div>
-                <span style={{ color: textSecondary }}>Deaths: </span>
-                <span className="font-medium" style={{ color: '#FF3B30' }}>{hoveredPoint.deaths.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="text-[11px] mt-2 leading-relaxed" style={{ color: textSecondary }}>
-              {hoveredPoint.reportDetails.slice(0, 120)}...
-            </div>
-            <div className="text-[10px] mt-2 flex items-center gap-1" style={{ color: textSecondary }}>
-              <span>Source: {hoveredPoint.source}</span>
-              <span>|</span>
-              <span>{hoveredPoint.date}</span>
-            </div>
-            <div className="text-[10px] mt-1 text-blue-400">
-              Click for full details and source link
-            </div>
-          </div>
-        </div>
-      )}
+          Dark
+        </button>
+        <button
+          onClick={() => setMapType('satellite')}
+          className="px-4 py-2.5 text-xs font-medium transition-all duration-200 border-0 cursor-pointer"
+          style={{
+            backgroundColor: mapType === 'satellite' 
+              ? (darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)')
+              : 'transparent',
+            color: mapType === 'satellite'
+              ? (darkMode ? '#ffffff' : '#1D1D1F')
+              : (darkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.5)'),
+            fontFamily: 'inherit',
+          }}
+        >
+          Satellite
+        </button>
+      </div>
+
+      {/* Custom CSS for Leaflet - Apple Glass style */}
+      <style>{`
+        .leaflet-container {
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+        }
+        .custom-pin-icon {
+          background: none !important;
+          border: none !important;
+        }
+        .leaflet-control-zoom {
+          border: none !important;
+          border-radius: 16px !important;
+          overflow: hidden !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          background: ${darkMode ? 'rgba(30, 30, 40, 0.7)' : 'rgba(255, 255, 255, 0.7)'} !important;
+          box-shadow: ${darkMode 
+            ? '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 0 0.5px rgba(255, 255, 255, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5)'} !important;
+          border: ${darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'} !important;
+          transition: opacity 0.3s ease, transform 0.3s ease !important;
+          opacity: ${controlsVisible ? 1 : 0} !important;
+          pointer-events: ${controlsVisible ? 'auto' : 'none'} !important;
+          transform: ${controlsVisible ? 'translateY(0)' : 'translateY(-10px)'} !important;
+        }
+        .leaflet-control-zoom a {
+          background: transparent !important;
+          color: ${darkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)'} !important;
+          border: none !important;
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          font-size: 18px !important;
+          font-weight: 300 !important;
+          transition: background 0.2s ease !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: ${darkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'} !important;
+        }
+        .leaflet-control-zoom-in {
+          border-radius: 0 !important;
+          border-bottom: ${darkMode ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.1)'} !important;
+        }
+        .leaflet-control-zoom-out {
+          border-radius: 0 !important;
+        }
+        .leaflet-popup-content-wrapper {
+          border-radius: 16px !important;
+          backdrop-filter: blur(20px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+          background: rgba(255, 255, 255, 0.95) !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 0 0 0.5px rgba(255, 255, 255, 0.5) !important;
+        }
+        .leaflet-popup-tip {
+          background: rgba(255, 255, 255, 0.95) !important;
+          box-shadow: none !important;
+        }
+        .leaflet-control-attribution {
+          backdrop-filter: blur(10px) !important;
+          -webkit-backdrop-filter: blur(10px) !important;
+          background: ${darkMode ? 'rgba(30, 30, 40, 0.6)' : 'rgba(255, 255, 255, 0.6)'} !important;
+          color: ${darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)'} !important;
+          font-size: 10px !important;
+          border-radius: 8px 0 0 0 !important;
+          padding: 2px 8px !important;
+          transition: opacity 0.3s ease !important;
+          opacity: ${controlsVisible ? 1 : 0} !important;
+        }
+        .leaflet-control-attribution a {
+          color: ${darkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)'} !important;
+        }
+      `}</style>
     </div>
   );
 });
 
 export default WorldMap;
-export type { MapPoint };
